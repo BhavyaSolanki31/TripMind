@@ -1,0 +1,368 @@
+{
+    "origin": "Delhi",
+    "destination": "Mumbai",
+    "date": "2026-10-10",
+    "flight_budget": 20000,
+    "flights": [
+        {
+            "airline": "Air India",
+            "price": 18500,
+            "duration": "8h 20m",
+            "stops": 1
+        },
+        {
+            "airline": "IndiGo",
+            "price": 21000,
+            "duration": "7h 10m",
+            "stops": 0
+        },
+        {
+            "airline": "Vistara",
+            "price": 19500,
+            "duration": "7h 45m",
+            "stops": 1
+        }
+    ],
+    "selected_flight": {
+        "airline": "Air India",
+        "price": 18500,
+        "duration": "8h 20m",
+        "stops": 1
+    },
+    "flight_recommendation": "Air India is selected because it fits within your budget of \u20b920000. It offers a balance between price, duration, and stops.",
+    "check_in": "2026-10-10",
+    "check_out": "2026-10-15",
+    "travelers": 2,
+    "stay_budget": 3000,
+    "stays": [
+        {
+            "name": "The Grand Residency",
+            "price_per_night": 3500,
+            "rating": 4.5,
+            "location": "City Center"
+        },
+        {
+            "name": "Urban Nest Hotel",
+            "price_per_night": 2800,
+            "rating": 4.2,
+            "location": "Near Metro"
+        },
+        {
+            "name": "Budget Comfort Inn",
+            "price_per_night": 1800,
+            "rating": 3.9,
+            "location": "Downtown"
+        }
+    ],
+    "selected_stay": {
+        "name": "Urban Nest Hotel",
+        "price_per_night": 2800,
+        "rating": 4.2,
+        "location": "Near Metro"
+    },
+    "stay_recommendation": "Urban Nest Hotel is recommended because it has a rating of 4.2/5 and costs \u20b92800 per night within your budget.",
+    "interests": [
+        "sightseeing",
+        "history"
+    ],
+    "activity_budget": 1500,
+    "activities": [
+        {
+            "name": "Gateway of India",
+            "category": "Sightseeing",
+            "price": 0,
+            "duration": "2 hours",
+            "latitude": 18.922,
+            "longitude": 72.8347
+        },
+        {
+            "name": "Marine Drive",
+            "category": "Sightseeing",
+            "price": 0,
+            "duration": "2 hours",
+            "latitude": 18.9431,
+            "longitude": 72.8238
+        },
+        {
+            "name": "Elephanta Caves",
+            "category": "History",
+            "price": 600,
+            "duration": "4 hours",
+            "latitude": 18.9633,
+            "longitude": 72.9315
+        },
+        {
+            "name": "Colaba Market",
+            "category": "Shopping",
+            "price": 0,
+            "duration": "2 hours",
+            "latitude": 18.915,
+            "longitude": 72.8258
+        }
+    ],
+    "selected_activities": [
+        {
+            "name": "Gateway of India",
+            "category": "Sightseeing",
+            "price": 0,
+            "duration": "2 hours",
+            "latitude": 18.922,
+            "longitude": 72.8347
+        },
+        {
+            "name": "Marine Drive",
+            "category": "Sightseeing",
+            "price": 0,
+            "duration": "2 hours",
+            "latitude": 18.9431,
+            "longitude": 72.8238
+        },
+        {
+            "name": "Elephanta Caves",
+            "category": "History",
+            "price": 600,
+            "duration": "4 hours",
+            "latitude": 18.9633,
+            "longitude": 72.9315
+        }
+    ],
+    "activity_recommendation": "AI recommendation unavailable. Using rule-based recommendation.",
+    "optimized_activities": [
+        {
+            "name": "Gateway of India",
+            "category": "Sightseeing",
+            "price": 0,
+            "duration": "2 hours",
+            "latitude": 18.922,
+            "longitude": 72.8347
+        },
+        {
+            "name": "Marine Drive",
+            "category": "Sightseeing",
+            "price": 0,
+            "duration": "2 hours",
+            "latitude": 18.9431,
+            "longitude": 72.8238
+        },
+        {
+            "name": "Elephanta Caves",
+            "category": "History",
+            "price": 600,
+            "duration": "4 hours",
+            "latitude": 18.9633,
+            "longitude": 72.9315
+        }
+    ],
+    "optimized_route": [
+        "Gateway of India",
+        "Marine Drive",
+        "Elephanta Caves"
+    ],
+    "total_route_distance_km": 14.16,
+    "route_recommendation": "The optimized route covers 3 locations with a total distance of 14.16 km.",
+    "total_budget": 40000,
+    "nights": 5,
+    "budget_breakdown": {
+        "flight_cost": 18500,
+        "hotel_cost": 14000,
+        "activity_cost": 600,
+        "total_cost": 33100
+    },
+    "budget_recommendation": "**TripMind Budget Analysis:**\n\n**Budget Status:** Within budget.\n\n**Remaining Balance:** \u20b96,900 remains.\n\n**Suggestion:** Trip is within budget. Remaining balance is \u20b96900.",
+    "weather": [
+        {
+            "destination": "Mumbai",
+            "date": "2026-10-10",
+            "temperature": 37.8,
+            "condition": "Moderate Drizzle",
+            "rain_probability": 59,
+            "wind": "11.9 km/h"
+        },
+        {
+            "destination": "Mumbai",
+            "date": "2026-10-11",
+            "temperature": 37.2,
+            "condition": "Light Drizzle",
+            "rain_probability": 31,
+            "wind": "11.0 km/h"
+        },
+        {
+            "destination": "Mumbai",
+            "date": "2026-10-12",
+            "temperature": 37.3,
+            "condition": "Mainly Clear",
+            "rain_probability": 0,
+            "wind": "14.7 km/h"
+        },
+        {
+            "destination": "Mumbai",
+            "date": "2026-10-13",
+            "temperature": 37.3,
+            "condition": "Mainly Clear",
+            "rain_probability": 0,
+            "wind": "11.5 km/h"
+        },
+        {
+            "destination": "Mumbai",
+            "date": "2026-10-14",
+            "temperature": 37.3,
+            "condition": "Mainly Clear",
+            "rain_probability": 2,
+            "wind": "12.1 km/h"
+        },
+        {
+            "destination": "Mumbai",
+            "date": "2026-10-15",
+            "temperature": 36.5,
+            "condition": "Clear Sky",
+            "rain_probability": 4,
+            "wind": "13.1 km/h"
+        }
+    ],
+    "weather_recommendation": "Weather in Mumbai: Clear Sky with 36.5\u00b0C temperature. Plan activities accordingly.",
+    "final_itinerary": {
+        "trip_title": "Mumbai Trip",
+        "summary": "6 days and 5 nights trip from Delhi to Mumbai.",
+        "days": [
+            {
+                "day": 1,
+                "date": "2026-10-10",
+                "title": "Day 1 in Mumbai",
+                "weather": {
+                    "destination": "Mumbai",
+                    "date": "2026-10-10",
+                    "temperature": 37.8,
+                    "condition": "Moderate Drizzle",
+                    "rain_probability": 59,
+                    "wind": "11.9 km/h"
+                },
+                "activities": [
+                    {
+                        "time": "Morning",
+                        "title": "Flight from Delhi to Mumbai",
+                        "description": "Travel via Air India.",
+                        "location": "Delhi Airport \u2192 Mumbai Airport",
+                        "cost": 18500
+                    },
+                    {
+                        "time": "Afternoon",
+                        "title": "Hotel Check-in",
+                        "description": "Check-in at Urban Nest Hotel.",
+                        "location": "Near Metro",
+                        "cost": 0
+                    }
+                ]
+            },
+            {
+                "day": 2,
+                "date": "2026-10-11",
+                "title": "Day 2 in Mumbai",
+                "weather": {
+                    "destination": "Mumbai",
+                    "date": "2026-10-11",
+                    "temperature": 37.2,
+                    "condition": "Light Drizzle",
+                    "rain_probability": 31,
+                    "wind": "11.0 km/h"
+                },
+                "activities": [
+                    {
+                        "time": "Morning",
+                        "title": "Gateway of India",
+                        "description": "Explore Gateway of India in Mumbai.",
+                        "location": "Gateway of India",
+                        "cost": 0
+                    }
+                ]
+            },
+            {
+                "day": 3,
+                "date": "2026-10-12",
+                "title": "Day 3 in Mumbai",
+                "weather": {
+                    "destination": "Mumbai",
+                    "date": "2026-10-12",
+                    "temperature": 37.3,
+                    "condition": "Mainly Clear",
+                    "rain_probability": 0,
+                    "wind": "14.7 km/h"
+                },
+                "activities": [
+                    {
+                        "time": "Morning",
+                        "title": "Marine Drive",
+                        "description": "Explore Marine Drive in Mumbai.",
+                        "location": "Marine Drive",
+                        "cost": 0
+                    }
+                ]
+            },
+            {
+                "day": 4,
+                "date": "2026-10-13",
+                "title": "Day 4 in Mumbai",
+                "weather": {
+                    "destination": "Mumbai",
+                    "date": "2026-10-13",
+                    "temperature": 37.3,
+                    "condition": "Mainly Clear",
+                    "rain_probability": 0,
+                    "wind": "11.5 km/h"
+                },
+                "activities": [
+                    {
+                        "time": "Morning",
+                        "title": "Elephanta Caves",
+                        "description": "Explore Elephanta Caves in Mumbai.",
+                        "location": "Elephanta Caves",
+                        "cost": 600
+                    }
+                ]
+            },
+            {
+                "day": 5,
+                "date": "2026-10-14",
+                "title": "Day 5 in Mumbai",
+                "weather": {
+                    "destination": "Mumbai",
+                    "date": "2026-10-14",
+                    "temperature": 37.3,
+                    "condition": "Mainly Clear",
+                    "rain_probability": 2,
+                    "wind": "12.1 km/h"
+                },
+                "activities": [
+                    {
+                        "time": "Free Time",
+                        "title": "Leisure Time",
+                        "description": "Relax and explore nearby areas.",
+                        "location": "Mumbai",
+                        "cost": 0
+                    }
+                ]
+            },
+            {
+                "day": 6,
+                "date": "2026-10-15",
+                "title": "Day 6 in Mumbai",
+                "weather": {
+                    "destination": "Mumbai",
+                    "date": "2026-10-15",
+                    "temperature": 36.5,
+                    "condition": "Clear Sky",
+                    "rain_probability": 4,
+                    "wind": "13.1 km/h"
+                },
+                "activities": [
+                    {
+                        "time": "Morning",
+                        "title": "Hotel Check-out",
+                        "description": "Check out from Urban Nest Hotel.",
+                        "location": "Near Metro",
+                        "cost": 0
+                    }
+                ]
+            }
+        ]
+    }
+}
