@@ -76,20 +76,26 @@ def plan_trip(request: TripRequest):
         "final_itinerary": ""
     })
 
+    
     return {
-    "selected_flight": result["selected_flight"],
-    "selected_stay": result["selected_stay"],
-    "selected_activities": result["selected_activities"],
+        "selected_flight": result["selected_flight"],
+        "selected_stay": result["selected_stay"],
+        "selected_activities": result["selected_activities"],
 
-    "optimized_route": result["optimized_route"],
-    "total_route_distance_km": result["total_route_distance_km"],
-    "route_recommendation": result["route_recommendation"],
+        "optimized_route": result["optimized_route"],
+        "total_route_distance_km": result["total_route_distance_km"],
+        "route_recommendation": result["route_recommendation"],
+        "route_distance_type": result.get(
+            "route_distance_type",
+            "straight-line estimate"
+        ),
+        "special_transport": result.get("special_transport", []),
 
-    "budget": result["budget_breakdown"],
-    "budget_analysis": result["budget_recommendation"],
+        "budget": result["budget_breakdown"],
+        "budget_analysis": result["budget_recommendation"],
 
-    "weather": result["weather"],
-    "weather_recommendation": result["weather_recommendation"],
+        "weather": result["weather"],
+        "weather_recommendation": result["weather_recommendation"],
 
-    "itinerary": result["final_itinerary"]
-}
+        "itinerary": result["final_itinerary"]
+    }

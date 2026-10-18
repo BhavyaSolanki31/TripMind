@@ -54,10 +54,14 @@ class TripState(TypedDict):
 
 
     # Route
+    
+    # Route
     optimized_activities: list
     optimized_route: list
     total_route_distance_km: float
     route_recommendation: str
+    route_distance_type: str
+    special_transport: list
 
 
     # Budget
@@ -151,31 +155,21 @@ def activity_node(state):
 # ROUTE NODE
 # ============================================================
 
-def route_node(state):
 
+def route_node(state):
     result = route_agent(
         activities=state["selected_activities"]
     )
 
-
     return {
-
-        "optimized_activities":
-            result["optimized_activities"],
-
-
-        "optimized_route":
-            result["route"],
-
-
-        "total_route_distance_km":
-            result["total_distance_km"],
-
-
-        "route_recommendation":
-            result["recommendation"]
-
+        "optimized_activities": result["optimized_activities"],
+        "optimized_route": result["route"],
+        "total_route_distance_km": result["total_distance_km"],
+        "route_recommendation": result["recommendation"],
+        "route_distance_type": result["distance_type"],
+        "special_transport": result["special_transport"],
     }
+
 
 
 

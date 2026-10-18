@@ -1,21 +1,41 @@
-from math import radians, sin, cos, sqrt, atan2
+
+from math import radians, sin, cos, sqrt, atan2, isfinite
+
+
+# Places that require a ferry or special transport.
+# This is metadata for route planning, not a live transport lookup.
+SPECIAL_TRANSPORT_PLACES = {
+    "elephanta caves": "ferry",
+}
 
 
 def calculate_distance(lat1, lon1, lat2, lon2):
     """
-    Calculate the approximate distance between two
-    geographic coordinates using the Haversine formula.
-
+    Calculate approximate straight-line distance using Haversine.
     Returns distance in kilometers.
     """
 
-    earth_radius = 6371.0
+    values = (lat1, lon1, lat2, lon2)
 
-    lat1 = radians(lat1)
-    lon1 = radians(lon1)
+    if not all(isfinite(float(value)) for value in values):
+        raise ValueError("Coordinates must be finite numbers.")
 
-    lat2 = radians(lat2)
-    lon2 = radians(lon2)
+    if not (-90 <= float(lat1) <= 90):
+        raise ValueError("Latitude must be between -90 and 90.")
+
+    if not (-90 <= float(lat2) <= 90):
+        raise ValueError("Latitude must be between -90 and 90.")
+
+    if not (-180 <= float(lon1) <= 180):
+        raise ValueError("Longitude must be between -180 and 180.")
+
+    if not (-180 <= float(lon2) <= 180):
+        raise ValueError("Longitude must be between -180 and 180.")
+
+    lat1, lon1, lat2, lon2 = map(
+        radians,
+        map(float, values)
+    )
 
     delta_lat = lat2 - lat1
     delta_lon = lon2 - lon1
@@ -27,145 +47,150 @@ def calculate_distance(lat1, lon1, lat2, lon2):
         * sin(delta_lon / 2) ** 2
     )
 
+    # Protect against small floating-point rounding errors.
+    a = min(1.0, max(0.0, a))
+
     c = 2 * atan2(sqrt(a), sqrt(1 - a))
 
-    distance = earth_radius * c
+    return round(6371.0 * c, 2)
 
-    return round(distance, 2)
+
+def get_transport_type(activity):
+    """Identify known special transport requirements."""
+
+    name = activity.get("name", "").strip().lower()
+
+    return SPECIAL_TRANSPORT_PLACES.get(name, "land")
 
 
 def optimize_route(activities):
     """
-    Optimize the order of activities using a simple
-    nearest-neighbor algorithm.
+    Order activities using a nearest-neighbor heuristic.
 
-    The algorithm:
-    1. Starts from the first activity.
-    2. Finds the nearest unvisited activity.
-    3. Moves to that activity.
-    4. Repeats until all activities are visited.
+    Distances are straight-line estimates between coordinates.
+    Ferry travel, road networks, opening hours, and travel times
+    are not calculated by this function.
 
-    Returns the optimized activity order and
-    total route distance.
+    Existing return keys are preserved for compatibility.
     """
+
+    activities = list(activities or [])
 
     if not activities:
         return {
             "optimized_activities": [],
             "route": [],
             "total_stops": 0,
-            "total_distance_km": 0
+            "total_distance_km": 0,
+            "distance_type": "straight-line estimate",
+            "special_transport": [],
         }
+
+    # Validate coordinates before route optimization.
+    for activity in activities:
+        if not isinstance(activity, dict):
+            raise ValueError("Each activity must be a dictionary.")
+
+        if not activity.get("name"):
+            raise ValueError("Every activity must have a name.")
+
+        if "latitude" not in activity or "longitude" not in activity:
+            raise ValueError(
+                f"Missing coordinates for {activity['name']}."
+            )
+
+        # Validate coordinates using the same public distance function.
+        calculate_distance(
+            activity["latitude"],
+            activity["longitude"],
+            activity["latitude"],
+            activity["longitude"],
+        )
 
     if len(activities) == 1:
-        return {
-            "optimized_activities": activities,
-            "route": [activities[0]["name"]],
-            "total_stops": 1,
-            "total_distance_km": 0
-        }
+        ordered = activities.copy()
+        distance = 0.0
+    else:
+        remaining = activities.copy()
+        ordered = [remaining.pop(0)]
+        distance = 0.0
 
-    remaining = activities.copy()
+        while remaining:
+            current = ordered[-1]
 
-    optimized_activities = []
+            nearest = min(
+                remaining,
+                key=lambda item: calculate_distance(
+                    current["latitude"],
+                    current["longitude"],
+                    item["latitude"],
+                    item["longitude"],
+                ),
+            )
 
-    # Start from the first activity
-    current = remaining.pop(0)
-
-    optimized_activities.append(current)
-
-    total_distance = 0
-
-    while remaining:
-
-        nearest_activity = min(
-            remaining,
-            key=lambda activity: calculate_distance(
+            distance += calculate_distance(
                 current["latitude"],
                 current["longitude"],
-                activity["latitude"],
-                activity["longitude"]
+                nearest["latitude"],
+                nearest["longitude"],
             )
-        )
 
-        distance = calculate_distance(
-            current["latitude"],
-            current["longitude"],
-            nearest_activity["latitude"],
-            nearest_activity["longitude"]
-        )
+            ordered.append(nearest)
+            remaining.remove(nearest)
 
-        total_distance += distance
+    route = [activity["name"] for activity in ordered]
 
-        optimized_activities.append(nearest_activity)
-
-        remaining.remove(nearest_activity)
-
-        current = nearest_activity
-
-    route = [
-        activity["name"]
-        for activity in optimized_activities
+    special_transport = [
+        {
+            "activity": activity["name"],
+            "transport": get_transport_type(activity),
+        }
+        for activity in ordered
+        if get_transport_type(activity) != "land"
     ]
 
     return {
-        "optimized_activities": optimized_activities,
+        "optimized_activities": ordered,
         "route": route,
-        "total_stops": len(optimized_activities),
-        "total_distance_km": round(total_distance, 2)
+        "total_stops": len(ordered),
+        "total_distance_km": round(distance, 2),
+        "distance_type": "straight-line estimate",
+        "special_transport": special_transport,
     }
 
 
 if __name__ == "__main__":
-
     sample_activities = [
         {
             "name": "Gateway of India",
-            "category": "Sightseeing",
-            "price": 0,
-            "duration": "2 hours",
             "latitude": 18.9220,
-            "longitude": 72.8347
+            "longitude": 72.8347,
         },
         {
             "name": "Marine Drive",
-            "category": "Sightseeing",
-            "price": 0,
-            "duration": "2 hours",
             "latitude": 18.9431,
-            "longitude": 72.8238
+            "longitude": 72.8238,
         },
         {
             "name": "Elephanta Caves",
-            "category": "History",
-            "price": 600,
-            "duration": "4 hours",
             "latitude": 18.9633,
-            "longitude": 72.9315
+            "longitude": 72.9315,
         },
         {
-            "name": "Colaba Market",
-            "category": "Shopping",
-            "price": 0,
-            "duration": "2 hours",
+            "name": "Colaba Causeway",
             "latitude": 18.9150,
-            "longitude": 72.8258
-        }
+            "longitude": 72.8317,
+        },
     ]
 
     result = optimize_route(sample_activities)
 
-    print("\n🗺️ OPTIMIZED ROUTE")
-    print("=" * 50)
-
-    for index, place in enumerate(
-        result["route"],
-        start=1
-    ):
+    print("\nOPTIMIZED ROUTE")
+    for index, place in enumerate(result["route"], start=1):
         print(f"{index}. {place}")
 
-    print("\nTOTAL STOPS:")
-    print(result["total_stops"])
+    print("\nTOTAL STOPS:", result["total_stops"])
+    print("STRAIGHT-LINE DISTANCE:", result["total_distance_km"], "km")
+    print("DISTANCE TYPE:", result["distance_type"])
+    print("SPECIAL TRANSPORT:", result["special_transport"])
 
-    print("\nTOTAL ROUTE DISTANCE:")
-    print(f"{result['total_distance_km']} km")
