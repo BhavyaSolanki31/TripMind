@@ -1,16 +1,13 @@
+
 from datetime import date, timedelta
 
 from tools.weather_search import search_weather
-from models.llm import ask_ai
 
 
 def weather_agent(destination, start_date, end_date):
     """
-    Weather Agent:
-
-    1. Fetches real weather for every day of the trip.
-    2. Uses AI to interpret the overall weather.
-    3. Returns weather data for each individual date.
+    Fetch daily weather and produce a recommendation based only
+    on the returned forecast data.
     """
 
     start = date.fromisoformat(start_date)
@@ -22,90 +19,119 @@ def weather_agent(destination, start_date, end_date):
         )
 
     daily_weather = []
-
     current_date = start
 
     while current_date <= end:
-
         current_date_string = current_date.isoformat()
 
         weather = search_weather(
             destination=destination,
-            date=current_date_string
+            date=current_date_string,
         )
 
         daily_weather.append(weather)
-
         current_date += timedelta(days=1)
 
-    # -------------------------------------------------
-    # AI WEATHER ANALYSIS
-    # -------------------------------------------------
+    available_days = [
+        item for item in daily_weather
+        if item.get("status") == "forecast"
+    ]
 
-    prompt = f"""
-You are TripMind's Weather Agent.
+    unavailable_count = len(daily_weather) - len(available_days)
 
-Destination:
-{destination}
+    if not available_days:
+        recommendation = (
+            f"Weather forecasts for {destination} are currently unavailable. "
+            "Check a reliable weather service before planning outdoor activities."
+        )
 
-Weather forecast for the trip:
+    else:
+        temperatures = [
+            item["temperature"]
+            for item in available_days
+            if isinstance(item.get("temperature"), (int, float))
+        ]
 
-{daily_weather}
+        rain_values = [
+            item["rain_probability"]
+            for item in available_days
+            if isinstance(item.get("rain_probability"), (int, float))
+        ]
 
-Analyze the weather across the entire trip.
+        wet_days = [
+            item for item in available_days
+            if isinstance(item.get("rain_probability"), (int, float))
+            and item["rain_probability"] >= 50
+        ]
 
-Give a short practical recommendation covering:
-1. Which days are most suitable for outdoor sightseeing.
-2. Which days may require weather precautions.
-3. General advice for planning outdoor activities.
+        details = []
 
-Important:
-- Use ONLY the weather information provided.
-- Do not invent weather conditions.
-- Do not change any temperature, rain probability,
-  condition, or wind values.
-- Keep the recommendation concise.
-"""
+        if temperatures:
+            details.append(
+                f"Forecast maximum temperatures range from "
+                f"{min(temperatures):g}°C to {max(temperatures):g}°C"
+            )
 
-    recommendation = (
-    f"Weather in {destination}: "
-    f"{weather['condition']} with "
-    f"{weather['temperature']}°C temperature. "
-    f"Plan activities accordingly."
-)
+        if rain_values:
+            details.append(
+                f"rain probability ranges from "
+                f"{min(rain_values):g}% to {max(rain_values):g}%"
+            )
+
+        if wet_days:
+            dates_text = ", ".join(item["date"] for item in wet_days)
+            advice = (
+                f"Consider rain precautions on {dates_text}."
+            )
+        else:
+            advice = (
+                "No available forecast reports a rain probability of 50% or higher."
+                if rain_values
+                else "Check precipitation details before outdoor activities."
+            )
+
+        recommendation = (
+            f"Weather in {destination}: "
+            + "; ".join(details)
+            + f". {advice}"
+        )
+
+        if unavailable_count:
+            recommendation += (
+                f" Forecast data is unavailable for "
+                f"{unavailable_count} day(s); check those dates again."
+            )
+
+        recommendation += (
+            " Check updated forecasts before travelling, as weather can change."
+        )
 
     return {
         "daily_weather": daily_weather,
-        "recommendation": recommendation
+        "recommendation": recommendation,
     }
 
 
-# -----------------------------------------------------
-# TEST
-# -----------------------------------------------------
-
 if __name__ == "__main__":
-
     result = weather_agent(
         destination="Mumbai",
-        start_date="2026-10-10",
-        end_date="2026-10-15"
+        start_date="2026-10-20",
+        end_date="2026-10-25",
     )
 
-    print("\n🌦️ DAILY WEATHER")
+    print("\nDAILY WEATHER")
     print("=" * 60)
 
-    for weather in result["daily_weather"]:
-
+    for item in result["daily_weather"]:
         print(
-            f"{weather['date']} | "
-            f"{weather['temperature']}°C | "
-            f"{weather['condition']} | "
-            f"Rain: {weather['rain_probability']}% | "
-            f"Wind: {weather['wind']}"
+            f"{item['date']} | "
+            f"{item['temperature']}°C | "
+            f"{item['condition']} | "
+            f"Rain: {item['rain_probability']}% | "
+            f"Wind: {item['wind']} | "
+            f"Status: {item['status']}"
         )
 
-    print("\n🤖 AI WEATHER ANALYSIS")
+    print("\nWEATHER RECOMMENDATION")
     print("=" * 60)
-
     print(result["recommendation"])

@@ -63,15 +63,14 @@ def get_transport_type(activity):
     return SPECIAL_TRANSPORT_PLACES.get(name, "land")
 
 
+
 def optimize_route(activities):
     """
-    Order activities using a nearest-neighbor heuristic.
+    Optimize mainland activities using nearest-neighbor ordering.
+    Special-transport activities are listed separately at the end.
 
-    Distances are straight-line estimates between coordinates.
-    Ferry travel, road networks, opening hours, and travel times
-    are not calculated by this function.
-
-    Existing return keys are preserved for compatibility.
+    All calculated distances remain straight-line estimates.
+    This function does not calculate ferry or road distances.
     """
 
     activities = list(activities or [])
@@ -86,7 +85,7 @@ def optimize_route(activities):
             "special_transport": [],
         }
 
-    # Validate coordinates before route optimization.
+    # Validate every activity and its coordinates.
     for activity in activities:
         if not isinstance(activity, dict):
             raise ValueError("Each activity must be a dictionary.")
@@ -99,7 +98,6 @@ def optimize_route(activities):
                 f"Missing coordinates for {activity['name']}."
             )
 
-        # Validate coordinates using the same public distance function.
         calculate_distance(
             activity["latitude"],
             activity["longitude"],
@@ -107,16 +105,26 @@ def optimize_route(activities):
             activity["longitude"],
         )
 
-    if len(activities) == 1:
-        ordered = activities.copy()
-        distance = 0.0
-    else:
-        remaining = activities.copy()
-        ordered = [remaining.pop(0)]
-        distance = 0.0
+    # Separate mainland activities from special-transport activities.
+    mainland = [
+        activity for activity in activities
+        if get_transport_type(activity) == "land"
+    ]
+
+    special = [
+        activity for activity in activities
+        if get_transport_type(activity) != "land"
+    ]
+
+    # Optimize mainland stops only.
+    ordered_mainland = []
+
+    if mainland:
+        remaining = mainland.copy()
+        ordered_mainland.append(remaining.pop(0))
 
         while remaining:
-            current = ordered[-1]
+            current = ordered_mainland[-1]
 
             nearest = min(
                 remaining,
@@ -128,15 +136,24 @@ def optimize_route(activities):
                 ),
             )
 
-            distance += calculate_distance(
-                current["latitude"],
-                current["longitude"],
-                nearest["latitude"],
-                nearest["longitude"],
-            )
-
-            ordered.append(nearest)
+            ordered_mainland.append(nearest)
             remaining.remove(nearest)
+
+    # Keep special-transport stops separate from mainland calculations.
+    ordered_special = special
+    ordered = ordered_mainland + ordered_special
+
+    distance = 0.0
+
+    for previous, current in zip(
+        ordered_mainland, ordered_mainland[1:]
+    ):
+        distance += calculate_distance(
+            previous["latitude"],
+            previous["longitude"],
+            current["latitude"],
+            current["longitude"],
+        )
 
     route = [activity["name"] for activity in ordered]
 
@@ -145,8 +162,7 @@ def optimize_route(activities):
             "activity": activity["name"],
             "transport": get_transport_type(activity),
         }
-        for activity in ordered
-        if get_transport_type(activity) != "land"
+        for activity in ordered_special
     ]
 
     return {
@@ -154,9 +170,10 @@ def optimize_route(activities):
         "route": route,
         "total_stops": len(ordered),
         "total_distance_km": round(distance, 2),
-        "distance_type": "straight-line estimate",
+        "distance_type": "mainland straight-line estimate; special transport excluded",
         "special_transport": special_transport,
     }
+
 
 
 if __name__ == "__main__":

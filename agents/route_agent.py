@@ -27,10 +27,11 @@ def route_agent(activities):
         recommendation = "No activities were provided for route optimization."
     else:
         recommendation = (
-            f"The optimized route covers {len(optimized_route)} locations "
-            f"with a total estimated straight-line distance of "
-            f"{total_distance} km."
-        )
+    f"The optimized route covers {len(optimized_activities)} locations. "
+    f"The estimated mainland straight-line distance is "
+    f"{total_distance} km; special transport distances are excluded. "
+    f"Actual road distances, ferry journeys, and schedules may differ."
+)
 
         if special_transport:
             transport_details = ", ".join(

@@ -354,10 +354,10 @@ export default function Home() {
 
               <div className="mt-4">
                 <div className="mb-2 flex justify-between text-xs text-slate-500">
-                  <span>Used</span>
+  <span>Total Budget</span>
 
-                  <span>₹{Number(budget).toLocaleString()}</span>
-                </div>
+  <span>₹{Number(budget).toLocaleString("en-IN")}</span>
+</div>
 
                 <div className="h-2 overflow-hidden rounded-full bg-slate-800">
                   <div
@@ -469,6 +469,43 @@ export default function Home() {
       </p>
     </div>
   </div>
+  
+  
+  {/* Route Distance Disclaimer */}
+  <div className="mt-5 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
+    <div className="flex items-start gap-3">
+      <span className="text-xl">⚠️</span>
+      <div>
+        <h4 className="font-semibold text-amber-300">
+          Estimated Distance Only
+        </h4>
+        <p className="mt-2 text-sm leading-6 text-slate-400">
+          Distance type: {result.route_distance_type || "straight-line estimate"}.
+          This is a geographic estimate, not verified road distance.
+          Actual travel distance, ferry routes, schedules, and travel times
+          may differ.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  {/* Special Transport Notice */}
+  {Array.isArray(result.special_transport) &&
+    result.special_transport.length > 0 && (
+      <div className="mt-4 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5">
+        <h4 className="font-semibold text-blue-300">
+          🚢 Special Transport Required
+        </h4>
+
+        {result.special_transport.map((item: any, index: number) => (
+          <p key={index} className="mt-2 text-sm leading-6 text-slate-300">
+            <strong>{item.activity}</strong> requires{" "}
+            {item.transport}. Confirm transport availability and operating
+            times before your visit.
+          </p>
+        ))}
+      </div>
+    )}
 
   {/* Route Timeline */}
   <div className="mt-7">
@@ -621,7 +658,17 @@ export default function Home() {
                                 day.weather.rain_probability
                               )}
                             </div>
-
+                            
+                            
+<p className="mt-2 text-xs text-slate-500">
+  Source: {day.weather.source || "Source not specified"}
+  {day.weather.status === "unavailable" && (
+    <span className="block mt-1 text-amber-300">
+      Forecast unavailable for this date.
+    </span>
+  )}
+</p>
+ 
                             <div>
                               <p className="text-xs font-medium uppercase tracking-[0.2em] text-blue-400">
                                 Weather
@@ -640,7 +687,9 @@ export default function Home() {
                               </p>
 
                               <p className="mt-1 font-semibold text-white">
-                                {day.weather.temperature}°C
+                                {day.weather.temperature != null
+  ? `${day.weather.temperature}°C`
+  : "Unavailable"}
                               </p>
                             </div>
 
@@ -650,7 +699,9 @@ export default function Home() {
                               </p>
 
                               <p className="mt-1 font-semibold text-white">
-                                {day.weather.rain_probability}%
+                                {day.weather.rain_probability != null
+  ? `${day.weather.rain_probability}%`
+  : "Unavailable"}
                               </p>
                             </div>
 
@@ -668,13 +719,18 @@ export default function Home() {
 
                         {/* Weather suitability */}
                         <div className="mt-4 border-t border-slate-800 pt-4">
-                          <p className="text-sm text-slate-400">
-                            {day.weather.rain_probability >= 50
-                              ? "🌧️ Outdoor activities may be affected. Keep indoor or flexible plans in mind."
-                              : day.weather.rain_probability >= 30
-                              ? "⛅ Outdoor activities are possible, but carrying a light rain layer is recommended."
-                              : "☀️ Conditions look favorable for outdoor sightseeing."}
-                          </p>
+                          
+<p className="text-sm text-slate-400">
+  {day.weather.status === "unavailable" ||
+  day.weather.rain_probability == null
+    ? "Weather data is unavailable. Check a reliable forecast before planning outdoor activities."
+    : day.weather.rain_probability >= 50
+    ? "🌧️ Higher rain probability. Consider flexible or indoor activities and check the latest forecast."
+    : day.weather.rain_probability >= 30
+    ? "⛅ Some chance of rain. Keep a flexible plan and check the latest forecast before outdoor activities."
+    : "☀️ Lower rain probability in this forecast. Conditions can change, so check the latest forecast before travelling."}
+</p>
+
                         </div>
                       </div>
                     )}
