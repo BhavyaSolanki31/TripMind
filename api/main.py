@@ -33,8 +33,8 @@ def home():
 @app.post("/plan-trip")
 def plan_trip(request: TripRequest):
 
-    start_date = date.fromisoformat(request["start_date"])
-    end_date = date.fromisoformat(request["end_date"])
+    start_date = request.start_date
+    end_date = request.end_date
 
     nights = (end_date - start_date).days
 
@@ -45,30 +45,30 @@ def plan_trip(request: TripRequest):
         )
 
     result = trip_graph.invoke({
-        "origin": request["origin"],
-        "destination": request["destination"],
-        "date": request["start_date"],
+        "origin": request.origin,
+        "destination": request.destination,
+        "date": request.start_date.isoformat(),
 
         "flight_budget": 20000,
         "flights": [],
         "selected_flight": {},
         "flight_recommendation": "",
 
-        "check_in": request["start_date"],
-        "check_out": request["end_date"],
-        "travelers": request["travelers"],
+        "check_in": request.start_date.isoformat(),
+        "check_out": request.end_date.isoformat(),
+        "travelers": request.travelers,
         "stay_budget": 3000,
         "stays": [],
         "selected_stay": {},
         "stay_recommendation": "",
 
-        "interests": request["interests"],
+        "interests": request.interests,
         "activity_budget": 1500,
         "activities": [],
         "selected_activities": [],
         "activity_recommendation": "",
 
-        "total_budget": request["total_budget"],
+        "total_budget": request.total_budget,
         "nights": nights,
         "budget_breakdown": {},
         "budget_recommendation": "",

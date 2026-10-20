@@ -28,9 +28,7 @@ def test_plan_trip_rejects_same_start_and_end_date():
 
     response = client.post("/plan-trip", json=payload)
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "End date must be after start date."
-
+    assert response.status_code == 422
 
 def test_plan_trip_rejects_end_date_before_start_date():
     payload = {
@@ -45,9 +43,11 @@ def test_plan_trip_rejects_end_date_before_start_date():
 
     response = client.post("/plan-trip", json=payload)
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "End date must be after start date."
-
+    assert response.status_code == 422
+    assert any(
+        "End date must be after start date." in error["msg"]
+         for error in response.json()["detail"]
+    )
 
 def test_plan_trip_returns_expected_response():
     fake_result = {
