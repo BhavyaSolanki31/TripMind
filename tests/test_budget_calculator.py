@@ -86,3 +86,30 @@ def test_rejects_invalid_budget_input_types(
             nights=nights,
             activity_cost=activity_cost,
         )
+
+
+import pytest
+
+from tools.budget_calculator import calculate_trip_budget
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_rejects_non_finite_values(value):
+    with pytest.raises(ValueError):
+        calculate_trip_budget(
+            flight_cost=value,
+            hotel_price_per_night=2800,
+            nights=2,
+            activity_cost=500,
+        )
+
+
+@pytest.mark.parametrize("nights", [1.5, True, "2"])
+def test_rejects_invalid_night_counts(nights):
+    with pytest.raises(ValueError):
+        calculate_trip_budget(
+            flight_cost=18500,
+            hotel_price_per_night=2800,
+            nights=nights,
+            activity_cost=500,
+        )

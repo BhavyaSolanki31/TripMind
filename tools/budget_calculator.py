@@ -1,4 +1,7 @@
 
+import math
+
+
 def calculate_trip_budget(
     flight_cost,
     hotel_price_per_night,
@@ -15,11 +18,20 @@ def calculate_trip_budget(
     }
 
     for name, value in inputs.items():
-        if not isinstance(value, (int, float)) or isinstance(value, bool):
+        if (
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+        ):
             raise ValueError(f"{name} must be a number.")
+
+        if not math.isfinite(value):
+            raise ValueError(f"{name} must be finite.")
 
         if value < 0:
             raise ValueError(f"{name} cannot be negative.")
+
+    if not isinstance(nights, int) or isinstance(nights, bool):
+        raise ValueError("nights must be a whole number.")
 
     hotel_cost = hotel_price_per_night * nights
     total_cost = flight_cost + hotel_cost + activity_cost
