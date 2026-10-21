@@ -1,6 +1,7 @@
 
 import json
 import time
+from datetime import date as Date
 from urllib.parse import urlencode
 from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
@@ -11,6 +12,7 @@ FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 
 TIMEOUT_SECONDS = 12
 MAX_ATTEMPTS = 3
+MAX_FORECAST_DAYS = 16
 
 
 def _get_json(url):
@@ -118,7 +120,42 @@ def unavailable_weather(destination, date, reason):
 
 
 def search_weather(destination, date):
-    """Fetch a daily forecast, returning a safe fallback on failure."""
+    """Fetch a daily forecast for a future date."""
+
+    # Validate the requested date.
+    try:
+        requested_date = Date.fromisoformat(date)
+    except (TypeError, ValueError):
+        return unavailable_weather(
+            str(destination),
+            str(date),
+            "Invalid date. Expected YYYY-MM-DD.",
+        )
+
+    today = Date.today()
+
+    if requested_date < today:
+        return unavailable_weather(
+            destination,
+            date,
+            "Past dates are not supported. Please choose a future travel date.",
+        )
+    if (requested_date - today).days > MAX_FORECAST_DAYS:
+      return unavailable_weather(
+        destination,
+        date,
+        f"Forecasts are available for up to {MAX_FORECAST_DAYS} days ahead. "
+        "Choose a date within that range.",
+    )
+    # Validate the destination.
+    if not isinstance(destination, str) or not destination.strip():
+        return unavailable_weather(
+            str(destination),
+            date,
+            "Destination must be a non-empty city name.",
+        )
+
+    destination = destination.strip()
 
     try:
         location = get_coordinates(destination)
@@ -133,8 +170,8 @@ def search_weather(destination, date):
                 "wind_speed_10m_max"
             ),
             "timezone": "auto",
-            "start_date": date,
-            "end_date": date,
+            "start_date": requested_date.isoformat(),
+            "end_date": requested_date.isoformat(),
         }
 
         url = f"{FORECAST_URL}?{urlencode(params)}"
@@ -142,34 +179,78 @@ def search_weather(destination, date):
 
         daily = data.get("daily")
 
-        if not daily or not daily.get("time"):
+        if not isinstance(daily, dict):
             return unavailable_weather(
-                destination, date, "No forecast is available for this date."
+                destination,
+                date,
+                "The weather service returned no daily forecast data.",
             )
 
-        if date not in daily["time"]:
+        dates = daily.get("time")
+
+        if not isinstance(dates, list) or date not in dates:
             return unavailable_weather(
-                destination, date, "The requested date was not returned."
+                destination,
+                date,
+                "No forecast is available for the requested date.",
             )
 
-        index = daily["time"].index(date)
+        index = dates.index(date)
 
-        temperature = daily["temperature_2m_max"][index]
-        weather_code = daily["weather_code"][index]
-        rain_probability = daily["precipitation_probability_max"][index]
-        wind_speed = daily["wind_speed_10m_max"][index]
+        required_fields = {
+            "temperature_2m_max": "temperature",
+            "weather_code": "condition",
+            "precipitation_probability_max": "rain probability",
+            "wind_speed_10m_max": "wind speed",
+        }
 
-        if any(
-            value is None
-            for value in (
-                temperature,
-                weather_code,
-                rain_probability,
-                wind_speed,
-            )
-        ):
+        values = {}
+
+        for field, label in required_fields.items():
+            series = daily.get(field)
+
+            if not isinstance(series, list) or index >= len(series):
+                return unavailable_weather(
+                    destination,
+                    date,
+                    f"The {label} measurement is missing.",
+                )
+
+            value = series[index]
+
+            if value is None:
+                return unavailable_weather(
+                    destination,
+                    date,
+                    f"The {label} measurement is unavailable.",
+                )
+
+            values[field] = value
+
+        temperature = values["temperature_2m_max"]
+        weather_code = values["weather_code"]
+        rain_probability = values["precipitation_probability_max"]
+        wind_speed = values["wind_speed_10m_max"]
+
+        if not isinstance(weather_code, int):
             return unavailable_weather(
-                destination, date, "Some forecast measurements are missing."
+                destination,
+                date,
+                "The weather service returned an invalid weather code.",
+            )
+
+        if not 0 <= rain_probability <= 100:
+            return unavailable_weather(
+                destination,
+                date,
+                "The rain probability is outside the valid range.",
+            )
+
+        if temperature < -100 or temperature > 70 or wind_speed < 0:
+            return unavailable_weather(
+                destination,
+                date,
+                "The weather service returned implausible measurements.",
             )
 
         return {
@@ -184,12 +265,26 @@ def search_weather(destination, date):
         }
 
     except Exception as error:
+        # Log diagnostic details locally, but return a friendly message.
+        print(
+            f"Weather lookup failed for {destination} "
+            f"on {date}: {error}"
+        )
+
         return unavailable_weather(
             destination,
             date,
-            f"Could not retrieve forecast after retries: {error}",
+            "Could not retrieve weather data. Please try again later.",
         )
 
 
 if __name__ == "__main__":
-    print(json.dumps(search_weather("Mumbai", "2026-10-20"), indent=2))
+    # Use a future date within the forecast horizon for testing.
+    test_date = (Date.today()).isoformat()
+
+    print(
+        json.dumps(
+            search_weather("Mumbai", test_date),
+            indent=2,
+        )
+    )
