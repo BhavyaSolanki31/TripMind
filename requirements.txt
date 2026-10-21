@@ -1,0 +1,7 @@
+﻿fastapi
+uvicorn
+langgraph
+google-genai
+python-dotenv
+pytest
+httpx

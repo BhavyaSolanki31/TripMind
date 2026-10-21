@@ -1,163 +1,204 @@
 
-# ✈️ TripMind — Multi-Agent AI Travel Planner
+# TripMind — Multi-Agent AI Travel Planner
 
-TripMind is a travel-planning application that generates budget-aware itineraries using specialized agents for flights, accommodation, activities, weather, budget analysis, and route optimization.
+TripMind is a multi-agent travel planning application that generates personalized, budget-aware itineraries based on a user's destination, travel dates, budget, number of travelers, and interests.
 
-Users enter their origin, destination, travel dates, group size, budget, and interests. TripMind returns a structured trip plan with estimated expenses, daily activities, weather information, and route recommendations.
+The project uses specialized agents coordinated through LangGraph, a FastAPI backend, and a Next.js frontend to bring flight search, accommodation recommendations, activities, weather information, route estimates, and budget analysis into one workflow.
 
-## ✨ Features
+## Features
 
-- **Trip Planning:** Generate itineraries based on destination, dates, travelers, and interests.
-- **Flight Recommendations:** Display a selected flight with airline, estimated price, duration, and stops.
-- **Accommodation Planning:** Include hotel recommendations and estimated nightly costs.
-- **Activity Recommendations:** Suggest places and activities based on user interests.
-- **Budget Analysis:** Calculate flight, hotel, and activity costs and show the remaining budget.
-- **Weather Forecasts:** Retrieve daily forecast data through the Open-Meteo API, with graceful handling of unavailable forecasts.
-- **Route Optimization:** Organize selected attractions into a recommended visit sequence and provide an estimated geographic distance.
-- **Daily Itinerary:** Combine travel, check-in, sightseeing, and check-out into a day-by-day plan.
-- **Input Validation:** Validate trip details and reject invalid dates, traveler counts, budgets, and other invalid inputs.
-- **Automated Tests:** Test API behavior, input validation, budget calculations, and weather handling.
+- **Multi-Agent Architecture:** Coordinates specialized agents for flights, stays, activities, budgeting, weather, route estimation, and itinerary generation.
+- **Flight Recommendations:** Provides flight options based on the trip details.
+- **Stay Recommendations:** Suggests accommodation options and estimates lodging costs.
+- **Activity Planning:** Recommends activities based on the destination and user interests.
+- **Budget Analysis:** Calculates estimated trip expenses and compares them with the user's budget.
+- **Weather Information:** Retrieves available forecasts using the Open-Meteo API.
+- **Route Estimation:** Estimates distances between selected locations.
+- **AI Integration:** Supports Gemini-powered generation through the Google GenAI SDK, with a deterministic fallback.
+- **Interactive Web Interface:** Lets users enter trip details and view the resulting itinerary.
+- **Input Validation:** Validates trip requests and budget calculations.
+- **Automated Tests:** Includes tests for API behavior, trip validation, budget calculations, and weather handling.
 
-## 🏗️ Architecture
+## Architecture
 
 ```text
-User
-  |
-  v
-Next.js Frontend
-  |
-  v
-FastAPI Backend
-  |
-  v
-Trip Orchestrator
-  |
-  +--> Flight Agent
-  |
-  +--> Stay Agent
-  |
-  +--> Activity Agent
-  |
-  +--> Weather Tool
-  |
-  +--> Budget Calculator
-  |
-  +--> Route Optimizer
-  |
-  v
-Itinerary Generation
-  |
-  v
-Structured Trip Response
-  |
-  v
-Frontend Results
+                    User
+                      |
+                      v
+              Next.js Frontend
+                      |
+                      v
+                FastAPI Backend
+                      |
+                      v
+              LangGraph Orchestrator
+                      |
+       +--------------+--------------+
+       |              |              |
+       v              v              v
+  Flight Agent    Stay Agent    Activity Agent
+       |              |              |
+       +--------------+--------------+
+                      |
+       +--------------+--------------+
+       |              |              |
+       v              v              v
+  Budget Agent    Weather Agent   Route Agent
+                      |
+                      v
+               Itinerary Agent
+                      |
+                      v
+             Trip Plan and Results
 ```
 
-The frontend collects trip preferences and sends a request to the FastAPI backend. The backend coordinates trip-planning components, calculates estimated expenses, retrieves available weather data, and returns a structured itinerary for display.
+The orchestrator coordinates the agents and combines their outputs into a trip plan. The exact execution flow is implemented in the backend graph.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Backend
 - Python
 - FastAPI
-- Pydantic
-- LangGraph
 - Uvicorn
-- Pytest
+- LangGraph
+- Pydantic
+- Google GenAI SDK
+- python-dotenv
 
 ### Frontend
 - Next.js
 - React
 - TypeScript
 - Tailwind CSS
-- React Markdown
 
-### Data and APIs
-- Open-Meteo Forecast API
-- Mock travel data for flight, hotel, and activity recommendations
+### External Services
+- Open-Meteo API for weather forecasts
+- Gemini API for optional AI-powered generation
 
-## 📁 Project Structure
+### Testing
+- pytest
+- FastAPI TestClient
+- httpx
+
+## Project Structure
 
 ```text
 TripMind/
-├── agents/                  # Specialized planning agents
-├── api/                     # FastAPI application
-├── database/                # Database-related components
-├── frontend/                # Next.js user interface
-├── models/                  # Request and data models
-├── orchestrator/             # Agent orchestration
-├── outputs/                 # Generated outputs
-├── tests/                   # Automated tests
-├── tools/                   # Budget, weather, and utility tools
-├── .env                     # Local environment variables
+├── agents/
+│   ├── budget_agent.py
+│   ├── flight_agent.py
+│   ├── stay_agent.py
+│   ├── activity_agent.py
+│   ├── weather_agent.py
+│   ├── route_agent.py
+│   └── itinerary_agent.py
+├── api/
+│   └── main.py
+├── database/
+├── frontend/
+│   ├── app/
+│   └── package.json
+├── models/
+│   ├── llm.py
+│   └── trip.py
+├── orchestrator/
+│   └── trip_graph.py
+├── outputs/
+├── tests/
+│   ├── test_api.py
+│   ├── test_budget_calculator.py
+│   ├── test_trip_model.py
+│   └── test_weather_search.py
+├── tools/
+│   ├── budget_calculator.py
+│   ├── flight_search.py
+│   ├── stay_search.py
+│   ├── route_optimizer.py
+│   └── weather_search.py
+├── .env                  # Local secrets; do not commit
 ├── .gitignore
+├── requirements.txt
 ├── README.md
 └── trip_result.json
 ```
 
-## 🚀 Getting Started
+*Note: The structure above highlights the main project files. Additional files may exist in individual directories.*
+
+## Getting Started
 
 ### Prerequisites
 
 - Python 3.12 or a compatible Python version
 - Node.js and npm
 - Git
+- A Gemini API key only if using the Gemini-powered functionality
 
-### 1. Clone the repository
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/BhavyaSolanki31/TripMind.git
 cd TripMind
 ```
 
-### 2. Set up the Python environment
+### 2. Create a Python Virtual Environment
 
-Windows PowerShell:
+**Windows PowerShell**
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-Install the backend dependencies using the dependency file available in the project. If a root `requirements.txt` has not been created yet, install the project's required packages before starting the backend.
+### 3. Install Backend Dependencies
 
-### 3. Configure environment variables
+```bash
+python -m pip install -r requirements.txt
+```
 
-Create a local `.env` file if required by your configuration. Add the necessary API keys for any enabled AI integrations.
+### 4. Configure Environment Variables
 
-Never commit API keys, passwords, or other secrets to GitHub.
+Create a `.env` file in the root directory.
 
-### 4. Start the backend
+Add your Gemini API key using the exact environment variable name read by `models/llm.py`.
 
-From the project root:
+Keep `.env` private. Never commit API keys or other credentials to GitHub.
 
-```powershell
+The application can use its deterministic fallback when AI generation is disabled or unavailable, depending on the configured application behavior.
+
+### 5. Start the Backend
+
+From the project root, run:
+
+```bash
 uvicorn api.main:app --reload
 ```
 
 The API should be available at:
 
-- API root: http://127.0.0.1:8000/
-- Interactive API documentation: http://127.0.0.1:8000/docs
+- **API base URL:** http://127.0.0.1:8000
+- **Interactive API documentation:** http://127.0.0.1:8000/docs
 
-### 5. Start the frontend
+### 6. Start the Frontend
 
-Open a second terminal:
+Open a second terminal and navigate to the frontend directory:
 
-```powershell
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Open http://localhost:3000 in your browser.
+Open:
 
-## 🔌 API Usage
+http://localhost:3000
 
-### `POST /plan-trip`
+Keep the backend running while using the frontend.
 
-Example request:
+## API Usage
+
+TripMind exposes a `POST /plan-trip` endpoint for generating a trip plan.
+
+### Example Request
 
 ```json
 {
@@ -176,56 +217,61 @@ Example request:
 }
 ```
 
-The response includes the selected flight, accommodation, activities, estimated budget, route recommendations, weather data, and daily itinerary.
+### Example with curl
 
-Use the interactive API documentation at `/docs` to submit requests and inspect the response schema.
+```bash
+curl -X POST "http://127.0.0.1:8000/plan-trip" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "origin": "Delhi",
+    "destination": "Mumbai",
+    "start_date": "2026-10-22",
+    "end_date": "2026-10-25",
+    "travelers": 2,
+    "total_budget": 50000,
+    "interests": ["historical places", "beaches", "food", "shopping"]
+  }'
+```
 
-## 🧪 Testing
+The response contains the generated trip plan and the available flight, accommodation, activity, budget, route, weather, and itinerary information.
 
-Run the automated test suite from the project root:
+Use the interactive API documentation at `/docs` to inspect the request schema and response structure.
 
-```powershell
+## Running Tests
+
+Run the test suite from the project root with the virtual environment activated:
+
+```bash
 python -m pytest -q
 ```
 
-The current test suite has **34 passing tests** covering the existing API, model validation, budget calculation, and weather behavior.
+The current development test suite has **34 passing tests**. Test results may change as the project evolves.
 
-Run the weather tool independently with:
+## Current Limitations
 
-```powershell
-python -m tools.weather_search
-```
+- **Mock Travel Data:** Flight, accommodation, and activity options are based on mock project data rather than verified live booking inventory.
+- **Estimated Routes:** Route distances are estimates, not verified road, walking, or ferry navigation routes. Some destinations may require separate transport, such as a ferry.
+- **Weather Availability:** Forecasts depend on the Open-Meteo service and its forecast horizon. Weather data may be unavailable for past dates, invalid dates, or dates outside the supported forecast window.
+- **AI Availability:** Gemini-powered generation depends on configuration, network access, API quotas, and service availability. The deterministic fallback may produce different results.
+- **Cost Estimates:** Prices are illustrative estimates and should not be treated as confirmed booking prices.
 
-Run the budget calculator independently with:
+## Future Improvements
 
-```powershell
-python -m tools.budget_calculator
-```
+- Integrate live flight and hotel inventory from authorized travel APIs.
+- Add maps and real route-distance calculations.
+- Improve activity ranking and personalization.
+- Add persistent user preferences and saved itineraries.
+- Expand automated tests and integration coverage.
+- Add deployment, monitoring, and production configuration.
+- Improve budget allocation and recommendations for different traveler profiles.
 
-## ⚠️ Current Limitations
-
-- Flight, hotel, and activity recommendations use mock data and are not live booking offers.
-- Prices are estimates and should not be treated as confirmed quotes.
-- Weather forecasts may be unavailable outside the supported forecast window or when the API cannot return data.
-- Route distances are geographic estimates, not verified road distances or complete travel times.
-- Special transport, such as ferries, requires separate confirmation of schedules and availability.
-- AI-powered planning depends on the configured model and its availability; deterministic fallback behavior may be used.
-
-## 🔮 Future Improvements
-
-- Integrate live flight and accommodation providers.
-- Improve itinerary personalization and agent coordination.
-- Add verified road routing, travel times, and public transport options.
-- Add persistent trip history and saved itineraries.
-- Expand automated tests and add frontend integration tests.
-- Improve deployment, monitoring, and production configuration.
-
-## 👩‍💻 Author
+## Author
 
 **Bhavya Solanki**
 
-GitHub: [BhavyaSolanki31](https://github.com/BhavyaSolanki31)
+- GitHub: [BhavyaSolanki31](https://github.com/BhavyaSolanki31)
+- Project Repository: [TripMind](https://github.com/BhavyaSolanki31/TripMind)
 
 ---
 
-Built as a multi-agent AI travel-planning project.
+*TripMind is a portfolio project exploring multi-agent orchestration, API development, AI integration, and personalized travel planning.*
