@@ -179,21 +179,20 @@ def route_node(state):
 # ============================================================
 
 def budget_node(state):
+    """Calculate trip cost safely, even when a search returns no option."""
+    selected_flight = state.get("selected_flight") or {}
+    selected_stay = state.get("selected_stay") or {}
 
-
-    flight_cost = (
-        state["selected_flight"]["price"]
-    )
-
-
-    hotel_price = (
-        state["selected_stay"]["price_per_night"]
-    )
-
+    # Empty selections are represented as zero here so the workflow can return
+    # a useful response instead of crashing. The API separately labels these
+    # listings as mock estimates, and the recommendations explain missing options.
+    flight_cost = selected_flight.get("price", 0)
+    hotel_price = selected_stay.get("price_per_night", 0)
 
     activity_cost = sum(
-        activity["price"]
-        for activity in state["optimized_activities"]
+        activity.get("price", activity.get("cost", 0))
+        for activity in (state.get("optimized_activities") or [])
+        if isinstance(activity, dict)
     )
 
 
@@ -445,36 +444,8 @@ def create_trip_request():
 
 
 if __name__ == "__main__":
-
-    result = trip_graph.invoke(
-        {
-            "origin": "Delhi",
-            "destination": "Mumbai",
-            "date": "2026-10-10",
-            "travelers": 2,
-            "budget": 50000
-        }
-    )
-
-
-    print("\n🗺️ FINAL TRIP ITINERARY")
-    print("=" * 60)
-
-    print(result["final_itinerary"])
-
-
-    with open(
-        "trip_result.json",
-        "w",
-        encoding="utf-8"
-    ) as file:
-
-        json.dump(
-            result["final_itinerary"],
-            file,
-            indent=4,
-            ensure_ascii=False
-        )
-
-
-    print("\n✅ Saved trip_result.json")
+    # Use the API for a complete end-to-end request so the graph receives all
+    # required state fields. Example:
+    # uvicorn api.main:app --reload
+    # Then POST a valid TripRequest to http://127.0.0.1:8000/plan-trip
+    print("TripMind graph is ready. Run it through the /plan-trip API endpoint.")

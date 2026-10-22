@@ -1,5 +1,6 @@
+from datetime import date
+
 from tools.stay_search import search_stays
-from models.llm import ask_ai
 
 
 def stay_agent(destination, check_in, check_out, travelers, budget):
@@ -16,6 +17,13 @@ def stay_agent(destination, check_in, check_out, travelers, budget):
         check_out,
         travelers
     )
+
+    if not stays:
+        return {
+            "available_stays": [],
+            "selected_stay": {},
+            "recommendation": f"No stay options were found in {destination}.",
+        }
 
     affordable_stays = [
         stay for stay in stays
@@ -36,29 +44,27 @@ def stay_agent(destination, check_in, check_out, travelers, budget):
             key=lambda stay: stay["price_per_night"]
         )
 
-    prompt = f"""
-You are TripMind's Stay Agent.
-
-The user wants to stay in {destination}
-from {check_in} to {check_out}.
-
-Travelers: {travelers}
-Maximum nightly budget: ₹{budget}
-
-Selected stay:
-
-{selected_stay}
-
-Briefly explain why this stay is a good choice.
-Consider price, rating, and location.
-"""
-
-    recommendation = (
-    f"{selected_stay['name']} is recommended because "
-    f"it has a rating of {selected_stay['rating']}/5 "
-    f"and costs ₹{selected_stay['price_per_night']} per night "
-    f"within your budget."
-)
+    is_affordable = selected_stay["price_per_night"] <= budget
+    nights = max(0, (
+        date.fromisoformat(check_out)
+        - date.fromisoformat(check_in)
+    ).days)
+    total_stay_cost = selected_stay["price_per_night"] * nights
+    if is_affordable:
+        recommendation = (
+            f"{selected_stay['name']} is recommended with a rating of "
+            f"{selected_stay['rating']}/5 at ₹{selected_stay['price_per_night']:,} per night, "
+            f"within the nightly target of ₹{budget:,}. The estimated stay total for "
+            f"{nights} night(s) is ₹{total_stay_cost:,}. Prices are mock estimates."
+        )
+    else:
+        recommendation = (
+            f"No listed stay fits the nightly target of ₹{budget:,}. The lowest-priced "
+            f"selected option is {selected_stay['name']} at ₹{selected_stay['price_per_night']:,} per night "
+            f"(₹{total_stay_cost:,} for {nights} night(s)), which is "
+            f"₹{selected_stay['price_per_night'] - budget:,} per night over target. "
+            "Prices are mock estimates, not live availability or quotes."
+        )
 
     return {
         "available_stays": stays,

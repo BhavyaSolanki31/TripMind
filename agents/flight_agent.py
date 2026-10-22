@@ -1,5 +1,4 @@
 from tools.flight_search import search_flights
-from models.llm import ask_ai
 
 
 def flight_agent(origin, destination, date, budget):
@@ -12,8 +11,14 @@ def flight_agent(origin, destination, date, budget):
 
     flights = search_flights(origin, destination, date)
 
-    # Select the best flight using simple deterministic logic.
-    # We will make this smarter later.
+    if not flights:
+        return {
+            "available_flights": [],
+            "selected_flight": {},
+            "recommendation": f"No flight options were found for {origin} to {destination}.",
+        }
+
+    # Prefer an affordable option; otherwise clearly report the cheapest over-budget option.
     affordable_flights = [
         flight for flight in flights
         if flight["price"] <= budget
@@ -30,27 +35,20 @@ def flight_agent(origin, destination, date, budget):
             key=lambda flight: flight["price"]
         )
 
-    prompt = f"""
-You are TripMind's Flight Agent.
-
-The user wants to travel from {origin} to {destination}
-on {date}.
-
-Flight budget: ₹{budget}
-
-Selected flight:
-
-{selected_flight}
-
-Explain briefly why this flight is a good choice.
-Consider price, duration, and number of stops.
-"""
-
-    recommendation = (
-    f"{selected_flight['airline']} is selected because "
-    f"it fits within your budget of ₹{budget}. "
-    f"It offers a balance between price, duration, and stops."
-)
+    is_affordable = selected_flight["price"] <= budget
+    if is_affordable:
+        recommendation = (
+            f"{selected_flight['airline']} is selected at ₹{selected_flight['price']:,}, "
+            f"within your flight budget of ₹{budget:,}. It has "
+            f"{selected_flight.get('stops', 'an unspecified number of')} stop(s)."
+        )
+    else:
+        recommendation = (
+            f"No listed flight fits the flight budget of ₹{budget:,}. "
+            f"The cheapest listed option is {selected_flight['airline']} at "
+            f"₹{selected_flight['price']:,}, which is ₹{selected_flight['price'] - budget:,} over the flight budget. "
+            "Prices are mock estimates, not live quotes."
+        )
 
     return {
         "available_flights": flights,

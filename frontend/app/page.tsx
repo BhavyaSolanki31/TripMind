@@ -4,7 +4,9 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
-const API_URL = "http://127.0.0.1:8000/plan-trip";
+const API_URL = `${(
+  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
+).replace(/\/$/, "")}/plan-trip`;
 
 const INTERESTS = [
   { name: "Sightseeing", icon: "🏛️" },
@@ -42,6 +44,22 @@ function ActivityImage({
     setFailed(false);
 
     const name = activityName.toLowerCase();
+
+    // Use a verified Wikimedia Commons photo for Colaba Causeway instead
+    // of search results that may accidentally match unrelated subjects.
+    if (name.includes("colaba")) {
+      setImageUrl(
+        "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6f/Colaba_Causeway%2CMumbai_-_panoramio.jpg/960px-Colaba_Causeway%2CMumbai_-_panoramio.jpg"
+      );
+      setImageSource(
+        "https://commons.wikimedia.org/wiki/File:Colaba_Causeway,Mumbai_-_panoramio.jpg"
+      );
+      return () => {
+        active = false;
+        controller.abort();
+      };
+    }
+
     let searchTerm = `${activityName} ${destination}`.trim();
 
     if (name.includes("gateway of india")) {
@@ -51,7 +69,7 @@ function ActivityImage({
     } else if (name.includes("elephanta")) {
       searchTerm = "Elephanta Caves Mumbai rock cut cave temple sculpture";
     } else if (name.includes("colaba")) {
-      searchTerm = "Colaba Causeway Mumbai market street";
+      searchTerm = "Colaba Causeway Mumbai shopping market street";
     } else if (name.includes("food")) {
       searchTerm = "Mumbai street food pav bhaji vada pav";
     } else if (name.includes("terminus")) {
@@ -59,21 +77,22 @@ function ActivityImage({
     }
 
     const queries = name.includes("colaba")
-  ? [
-      '"Colaba Causeway" Mumbai',
-      '"Colaba market" Mumbai shops',
-    ]
-  : name.includes("food")
-    ? [
-        '"Mumbai street food" pav bhaji',
-        '"Mumbai vada pav" street food',
-        '"Mumbai food stall"'
-      ]
-    : [
-        searchTerm,
-        `${activityName} ${destination}`,
-        `${activityName} India`,
-      ];
+      ? [
+          '"Colaba Causeway" Mumbai',
+          '"Colaba market" Mumbai shops',
+          'Mumbai street shopping market',
+        ]
+      : name.includes("food")
+        ? [
+            '"Mumbai street food" pav bhaji',
+            '"Mumbai vada pav" street food',
+            '"Mumbai food stall"',
+          ]
+        : [
+            searchTerm,
+            `${activityName} ${destination}`,
+            `${activityName} India`,
+          ];
 
     async function findImage() {
       for (const query of queries) {
@@ -105,6 +124,7 @@ function ActivityImage({
           const pages = Object.values(
             data?.query?.pages ?? {}
           ) as Array<{
+            title?: string;
             imageinfo?: Array<{
               thumburl?: string;
               url?: string;
@@ -112,8 +132,56 @@ function ActivityImage({
             }>;
           }>;
 
-          const page = pages.find((item) =>
+          const usablePages = pages.filter((item) =>
             Boolean(item.imageinfo?.[0]?.thumburl || item.imageinfo?.[0]?.url)
+          );
+
+          const matchingPage = usablePages.find((item) => {
+            const title = String(item.title ?? "").toLowerCase();
+
+            if (name.includes("colaba")) {
+              return (
+                title.includes("colaba") ||
+                title.includes("causeway") ||
+                title.includes("mumbai market") ||
+                title.includes("street market") ||
+                title.includes("shopping street")
+              );
+            }
+
+            if (name.includes("food")) {
+              return (
+                title.includes("food") ||
+                title.includes("pav bhaji") ||
+                title.includes("vada pav") ||
+                title.includes("street food") ||
+                title.includes("mumbai cuisine")
+              );
+            }
+
+            if (name.includes("gateway of india")) {
+              return title.includes("gateway of india");
+            }
+
+            if (name.includes("marine drive")) {
+              return title.includes("marine drive") || title.includes("queen's necklace");
+            }
+
+            if (name.includes("elephanta")) {
+              return title.includes("elephanta");
+            }
+
+            if (name.includes("terminus")) {
+              return title.includes("terminus") || title.includes("chhatrapati shivaji");
+            }
+
+            return true;
+          });
+
+          const page = matchingPage ?? (
+            name.includes("colaba") || name.includes("food")
+              ? undefined
+              : usablePages[0]
           );
 
           const info = page?.imageinfo?.[0];
