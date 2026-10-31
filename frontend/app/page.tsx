@@ -816,9 +816,27 @@ useEffect(() => {
               <h3 className="mt-5 text-lg font-bold">
                 {result.selected_flight?.airline ?? "Flight option"}
               </h3>
-              <p className="mt-2 text-2xl font-extrabold text-blue-300">
-                {money(result.selected_flight?.price)}
-              </p>
+              <div className="mt-2">
+  <p className="text-2xl font-extrabold text-blue-300">
+    {money(result.selected_flight?.price)}
+    <span className="ml-2 text-xs font-medium text-slate-400">
+      total
+    </span>
+  </p>
+
+  {result.selected_flight?.price_per_person != null && (
+    <p className="mt-1 text-sm text-slate-400">
+      {money(result.selected_flight.price_per_person)} per traveller
+    </p>
+  )}
+
+  {result.selected_flight?.travelers != null && (
+    <p className="mt-1 text-xs text-slate-500">
+      For {result.selected_flight.travelers}{" "}
+      {result.selected_flight.travelers === 1 ? "traveller" : "travellers"}
+    </p>
+  )}
+</div>
               <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-400">
                 {result.selected_flight?.duration && (
                   <span className="rounded-lg bg-white/[0.04] px-3 py-2">
