@@ -1,13 +1,14 @@
 
-from datetime import date, timedelta
+from datetime import date
 
-from tools.weather_search import search_weather
+from tools.weather_search import search_weather_range
 
 
 def weather_agent(destination, start_date, end_date):
     """
-    Fetch daily weather and produce a recommendation based only
-    on the returned forecast data.
+    Fetch the trip's daily weather using one date-range lookup.
+
+    Produces the same output structure expected by the orchestrator.
     """
 
     start = date.fromisoformat(start_date)
@@ -18,19 +19,11 @@ def weather_agent(destination, start_date, end_date):
             "End date must be after or equal to start date."
         )
 
-    daily_weather = []
-    current_date = start
-
-    while current_date <= end:
-        current_date_string = current_date.isoformat()
-
-        weather = search_weather(
-            destination=destination,
-            date=current_date_string,
-        )
-
-        daily_weather.append(weather)
-        current_date += timedelta(days=1)
+    daily_weather = search_weather_range(
+        destination=destination,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
     available_days = [
         item for item in daily_weather
@@ -79,13 +72,15 @@ def weather_agent(destination, start_date, end_date):
             )
 
         if wet_days:
-            dates_text = ", ".join(item["date"] for item in wet_days)
-            advice = (
-                f"Consider rain precautions on {dates_text}."
+            dates_text = ", ".join(
+                item["date"] for item in wet_days
             )
+            advice = f"Consider rain precautions on {dates_text}."
+
         else:
             advice = (
-                "No available forecast reports a rain probability of 50% or higher."
+                "No available forecast reports a rain probability "
+                "of 50% or higher."
                 if rain_values
                 else "Check precipitation details before outdoor activities."
             )
@@ -113,10 +108,15 @@ def weather_agent(destination, start_date, end_date):
 
 
 if __name__ == "__main__":
+    from datetime import timedelta
+
+    test_start = date.today()
+    test_end = test_start + timedelta(days=3)
+
     result = weather_agent(
         destination="Mumbai",
-        start_date="2026-10-20",
-        end_date="2026-10-25",
+        start_date=test_start.isoformat(),
+        end_date=test_end.isoformat(),
     )
 
     print("\nDAILY WEATHER")

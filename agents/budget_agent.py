@@ -1,5 +1,5 @@
+
 from tools.budget_calculator import calculate_trip_budget
-from models.llm import ask_ai
 
 
 def budget_agent(
@@ -7,104 +7,155 @@ def budget_agent(
     hotel_price_per_night,
     nights,
     activity_cost,
-    total_budget
+    total_budget,
+    flight_budget=None,
+    accommodation_budget=None,
+    activity_budget=None,
 ):
     """
     Budget Agent:
-    1. Calculates the exact trip cost using Python.
-    2. Determines whether the trip is within budget.
-    3. Uses AI only for a practical recommendation.
+    1. Calculates exact trip costs using Python.
+    2. Checks the overall trip budget.
+    3. Checks individual category allocations.
+    4. Generates a clear budget recommendation.
     """
 
+    if not isinstance(total_budget, (int, float)) or isinstance(total_budget, bool):
+        raise ValueError("Total budget must be a valid number.")
+
+    if total_budget < 0:
+        raise ValueError("Total budget cannot be negative.")
+
+    # Default allocation policy: 45%, 35%, 20%.
+    flight_budget = (
+        total_budget * 0.45
+        if flight_budget is None
+        else flight_budget
+    )
+
+    accommodation_budget = (
+        total_budget * 0.35
+        if accommodation_budget is None
+        else accommodation_budget
+    )
+
+    activity_budget = (
+        total_budget * 0.20
+        if activity_budget is None
+        else activity_budget
+    )
+
+    allocations = {
+        "Flights": (flight_budget, flight_cost),
+        "Accommodation": (
+            accommodation_budget,
+            hotel_price_per_night * nights,
+        ),
+        "Activities": (activity_budget, activity_cost),
+    }
+
+    # Calculate exact actual trip expenses.
     budget = calculate_trip_budget(
         flight_cost=flight_cost,
         hotel_price_per_night=hotel_price_per_night,
         nights=nights,
-        activity_cost=activity_cost
+        activity_cost=activity_cost,
     )
 
     total_cost = budget["total_cost"]
     remaining = total_budget - total_cost
 
+    # Overall budget status.
     if remaining >= 0:
         budget_status = "Within budget"
-        balance_message = f"₹{remaining:,} remains."
+        balance_message = f"₹{remaining:,.0f} remains."
     else:
         budget_status = "Over budget"
-        balance_message = f"₹{abs(remaining):,} over budget."
+        balance_message = f"₹{abs(remaining):,.0f} over budget."
 
-    prompt = f"""
-You are TripMind's Budget Agent.
+    # Category-level analysis.
+    category_lines = []
+    category_overspending = []
 
-Python has already calculated the exact financial values.
-DO NOT recalculate or modify any numbers.
+    for category, (allocated, actual) in allocations.items():
+        difference = actual - allocated
 
-Trip budget: ₹{total_budget:,}
-Flight cost: ₹{budget["flight_cost"]:,}
-Hotel cost: ₹{budget["hotel_cost"]:,}
-Activity cost: ₹{budget["activity_cost"]:,}
-Total trip cost: ₹{total_cost:,}
-Remaining balance: ₹{remaining:,}
+        if difference > 0:
+            status = f"Over allocation by ₹{difference:,.0f}"
+            category_overspending.append(
+                f"{category}: ₹{difference:,.0f} over"
+            )
+        else:
+            status = f"Within allocation (₹{abs(difference):,.0f} remaining)"
 
-Budget status: {budget_status}
+        category_lines.append(
+            f"**{category}:** "
+            f"Allocated ₹{allocated:,.0f} | "
+            f"Spent ₹{actual:,.0f} | "
+            f"{status}"
+        )
 
-Write ONE short practical suggestion for the traveler.
-
-Important:
-- Do not change any numbers.
-- Do not perform additional calculations.
-- Do not invent fees or adjustments.
-- Do not mention a different remaining balance.
-- Keep the suggestion concise.
-"""
-
-    if total_cost <= total_budget:
-
-      recommendation = (
-        f"Trip is within budget. "
-        f"Remaining balance is ₹{total_budget-total_cost}."
-    )
-
+    if category_overspending and remaining >= 0:
+        recommendation = (
+            "The overall trip is within budget, but some category "
+            "allocations have been exceeded. Consider reallocating "
+            "unused accommodation or activity funds toward flights."
+        )
+    elif category_overspending and remaining < 0:
+        recommendation = (
+            "The trip exceeds the overall budget and some category "
+            "allocations. Consider choosing lower-cost options."
+        )
+    elif remaining < 0:
+        recommendation = (
+            "The trip exceeds the overall budget. Consider reducing "
+            "travel or accommodation expenses."
+        )
     else:
-
-      recommendation = (
-        f"Trip exceeds budget by "
-        f"₹{total_cost-total_budget}."
-    )
+        recommendation = (
+            "The trip is within the overall budget and all category "
+            "allocations."
+        )
 
     budget_analysis = (
         f"**TripMind Budget Analysis:**\n\n"
-        f"**Budget Status:** {budget_status}.\n\n"
+        f"**Overall Budget Status:** {budget_status}\n\n"
+        f"**Total Budget:** ₹{total_budget:,.0f}\n\n"
+        f"**Total Estimated Cost:** ₹{total_cost:,.0f}\n\n"
         f"**Remaining Balance:** {balance_message}\n\n"
-        f"**Suggestion:** {recommendation}"
+        f"**Category Breakdown:**\n\n"
+        + "\n\n".join(category_lines)
+        + f"\n\n**Suggestion:** {recommendation}"
     )
 
     return {
         "budget_breakdown": budget,
         "budget_status": budget_status,
         "remaining_balance": remaining,
-        "budget_recommendation": budget_analysis
+        "budget_recommendation": budget_analysis,
+        "category_analysis": {
+            category: {
+                "allocated": allocated,
+                "actual": actual,
+                "remaining": allocated - actual,
+                "status": (
+                    "Over allocation"
+                    if actual > allocated
+                    else "Within allocation"
+                ),
+            }
+            for category, (allocated, actual) in allocations.items()
+        },
     }
 
 
 if __name__ == "__main__":
-
     result = budget_agent(
-        flight_cost=18500,
-        hotel_price_per_night=2800,
-        nights=5,
-        activity_cost=600,
-        total_budget=40000
+        flight_cost=37000,
+        hotel_price_per_night=3500,
+        nights=3,
+        activity_cost=1800,
+        total_budget=50000,
     )
 
-    print("\nBUDGET BREAKDOWN:")
-    print(result["budget_breakdown"])
-
-    print("\nBUDGET STATUS:")
-    print(result["budget_status"])
-
-    print("\nREMAINING BALANCE:")
-    print(result["remaining_balance"])
-
-    print("\nAI BUDGET ANALYSIS:")
     print(result["budget_recommendation"])

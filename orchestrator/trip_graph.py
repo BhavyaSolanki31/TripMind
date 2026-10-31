@@ -117,12 +117,12 @@ def route_node(state):
     }
 
 
+
 def budget_node(state):
     selected_flight = state.get("selected_flight") or {}
     selected_stay = state.get("selected_stay") or {}
 
-    # The updated flight agent returns price as the total for all travelers.
-    # The fallback keeps compatibility with older flight-agent results.
+    # Flight price is already the total for all travelers.
     if "price_per_person" in selected_flight:
         flight_cost = selected_flight.get("price", 0)
     else:
@@ -139,18 +139,27 @@ def budget_node(state):
         if isinstance(activity, dict)
     )
 
+    total_budget = state["total_budget"]
+    nights = state["nights"]
+
     result = budget_agent(
         flight_cost=flight_cost,
         hotel_price_per_night=hotel_price,
-        nights=state["nights"],
+        nights=nights,
         activity_cost=activity_cost,
-        total_budget=state["total_budget"],
+        total_budget=total_budget,
+
+        # Use the original allocation policy.
+        flight_budget=total_budget * 0.45,
+        accommodation_budget=total_budget * 0.35,
+        activity_budget=total_budget * 0.20,
     )
 
     return {
         "budget_breakdown": result["budget_breakdown"],
         "budget_recommendation": result["budget_recommendation"],
     }
+
 
 
 def weather_node(state):
