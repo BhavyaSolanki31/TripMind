@@ -390,20 +390,25 @@ def search_weather_range(destination, start_date, end_date):
                     daily_data,
                 )
 
+
     except Exception as error:
         print(
             f"Weather range lookup failed for {destination} "
             f"from {forecast_dates[0]} to {forecast_dates[-1]}: {error}"
         )
 
+        # Weather is optional: preserve the trip plan even if
+        # the external weather provider is unavailable.
         for index, item in enumerate(daily_weather):
             if item is None:
-                requested_date = (start + timedelta(days=index)).isoformat()
+                requested_date = (
+                    start + timedelta(days=index)
+                ).isoformat()
 
-                daily_weather[index] = _build_daily_weather(
+                daily_weather[index] = unavailable_weather(
                     destination,
                     requested_date,
-                    daily_data,
+                    f"Weather service temporarily unavailable: {error}",
                 )
 
     return daily_weather
