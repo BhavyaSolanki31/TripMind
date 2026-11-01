@@ -15,7 +15,8 @@ FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 TIMEOUT_SECONDS = 15
 MAX_ATTEMPTS = 3
 MAX_FORECAST_DAYS = 16
-CACHE_TTL_SECONDS = 900
+CACHE_TTL_SECONDS = 3600  # Reuse successful forecasts for one hour.
+RATE_LIMIT_COOLDOWN_SECONDS = 300  # Pause Open-Meteo calls after HTTP 429.
 
 WEATHER_FIELDS = (
     "temperature_2m_max,"
@@ -26,15 +27,28 @@ WEATHER_FIELDS = (
 
 _forecast_cache = {}
 _cache_lock = threading.Lock()
+_provider_cooldown_until = 0.0
 
 
 def _get_json(url):
     """
     Fetch JSON with timeouts and retries.
 
-    HTTP 429 is not retried because repeated requests can
-    make rate limiting worse.
+    A 429 response starts a shared cooldown for both geocoding
+    and forecast requests, preventing repeated calls from making
+    provider rate limiting worse.
     """
+    global _provider_cooldown_until
+
+    now = time.monotonic()
+    with _cache_lock:
+        remaining = _provider_cooldown_until - now
+
+    if remaining > 0:
+        raise RuntimeError(
+            f"Open-Meteo rate-limit cooldown is active "
+            f"({int(remaining) + 1} seconds remaining)."
+        )
 
     request = Request(
         url,
@@ -48,6 +62,18 @@ def _get_json(url):
 
         except HTTPError as error:
             if error.code == 429:
+                retry_after = error.headers.get("Retry-After")
+                try:
+                    cooldown = int(retry_after) if retry_after else RATE_LIMIT_COOLDOWN_SECONDS
+                except (TypeError, ValueError):
+                    cooldown = RATE_LIMIT_COOLDOWN_SECONDS
+
+                # Respect provider guidance, but keep the cooldown bounded.
+                cooldown = max(60, min(cooldown, 900))
+                with _cache_lock:
+                    _provider_cooldown_until = (
+                        time.monotonic() + cooldown
+                    )
                 raise
 
             if error.code not in (500, 502, 503, 504):
@@ -376,17 +402,13 @@ def search_weather_range(destination, start_date, end_date):
 
         for index, item in enumerate(daily_weather):
             if item is None:
+                requested_date = (
+                    start + timedelta(days=index)
+                ).isoformat()
+
                 daily_weather[index] = _build_daily_weather(
                     destination,
-                    forecast_dates[forecast_dates.index(
-                        next(
-                            date_string
-                            for date_string in forecast_dates
-                            if date_string == (
-                                start + timedelta(days=index)
-                            ).isoformat()
-                        )
-                    )],
+                    requested_date,
                     daily_data,
                 )
 
