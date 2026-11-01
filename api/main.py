@@ -74,8 +74,14 @@ def plan_trip(request: TripRequest):
 
     if nights <= 0:
         raise HTTPException(
-            status_code=400,
-            detail="End date must be after start date.",
+           status_code=400,
+           detail="End date must be after start date.",
+        )
+
+    if nights > 30:
+        raise HTTPException(
+           status_code=400,
+           detail="Trips can be up to 30 nights long. Please choose an earlier return date.",
         )
 
     # Calculate budget allocations.

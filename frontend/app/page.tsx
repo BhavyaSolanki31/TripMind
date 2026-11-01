@@ -331,8 +331,16 @@ useEffect(() => {
       return;
     }
 
-    if (endDate <= startDate) {
-      setErrorMessage("Your end date must be after your start date.");
+    const tripNights = Math.round(
+      (Date.parse(`${endDate}T00:00:00Z`) -
+        Date.parse(`${startDate}T00:00:00Z`)) /
+        (1000 * 60 * 60 * 24)
+    );
+
+    if (tripNights > 30) {
+      setErrorMessage(
+         "Trips can be up to 30 nights long. Please choose an earlier return date."
+      );
       return;
     }
 
@@ -469,6 +477,23 @@ useEffect(() => {
       ? Math.min((totalCost / budgetValue) * 100, 100)
       : 0;
 
+  // Extract category allocations from the budget agent's existing analysis.
+  const budgetAnalysisText = String(result?.budget_analysis ?? "").replace(/\*/g, "").replace(/,/g, "");
+  const budgetCategoryRows = [
+    { name: "Flights", icon: "✈️", color: "bg-blue-400" },
+    { name: "Accommodation", icon: "🏨", color: "bg-violet-400" },
+    { name: "Activities", icon: "🎟️", color: "bg-emerald-400" },
+  ].map((category) => {
+    const pattern = new RegExp(
+      `${category.name}\\s*:\\s*Allocated\\s*₹?\\s*([\\d.]+)\\s*\\|\\s*Spent\\s*₹?\\s*([\\d.]+)`,
+      "i"
+    );
+    const match = budgetAnalysisText.match(pattern);
+    return match
+      ? { ...category, allocated: Number(match[1]), spent: Number(match[2]) }
+      : null;
+  }).filter((category): category is NonNullable<typeof category> => category !== null);
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#070b16] text-white">
       <div
@@ -481,7 +506,7 @@ useEffect(() => {
       />
 
       <header className="relative z-10 border-b border-white/[0.07]">
-        <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
+        <nav className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-8 sm:py-5">
           <a href="#" className="flex items-center gap-3" aria-label="TripMind home">
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/15 text-xl shadow-lg shadow-blue-950/30">
               ✈
@@ -531,7 +556,7 @@ useEffect(() => {
             MULTI-AGENT AI TRAVEL PLANNER
           </div>
 
-          <h1 className="mt-7 text-5xl font-black leading-[1.08] tracking-[-0.055em] sm:text-6xl lg:text-7xl">
+          <h1 className="mt-7 text-4xl font-black leading-[1.08] tracking-[-0.045em] min-[380px]:text-5xl sm:text-6xl lg:text-7xl">
             Your next adventure,
             <span className="mt-2 block bg-gradient-to-r from-blue-300 via-sky-400 to-indigo-400 bg-clip-text text-transparent">
               thoughtfully planned.
@@ -1096,30 +1121,114 @@ useEffect(() => {
           <Panel>
             <SectionHeading
               eyebrow="Spend thoughtfully"
-              title="Budget recommendations"
-              description="Review the available analysis alongside the estimated costs above."
+              title="Budget breakdown"
+              description="Compare your estimated trip costs with the amount allocated to each category."
             />
 
-            <div className="rounded-2xl border border-white/[0.07] bg-[#0a1020] p-5 sm:p-6">
-              <div className="max-w-none text-sm leading-7 text-slate-300">
-                <ReactMarkdown
-                  components={{
-                    strong: ({ children }) => (
-                      <strong className="font-semibold text-white">{children}</strong>
-                    ),
-                    p: ({ children }) => (
-                      <p className="mb-3 last:mb-0">{children}</p>
-                    ),
-                    ul: ({ children }) => (
-                      <ul className="my-3 list-disc space-y-2 pl-5">{children}</ul>
-                    ),
-                    li: ({ children }) => <li>{children}</li>,
-                  }}
-                >
-                  {result.budget_analysis || "No budget analysis was provided."}
-                </ReactMarkdown>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-white/[0.08] bg-[#0a1020] p-4 sm:p-5">
+                <p className="text-xs font-medium text-slate-500">Total budget</p>
+                <p className="mt-2 text-xl font-extrabold text-white sm:text-2xl">{money(budgetValue)}</p>
+              </div>
+              <div className="rounded-2xl border border-white/[0.08] bg-[#0a1020] p-4 sm:p-5">
+                <p className="text-xs font-medium text-slate-500">Estimated spend</p>
+                <p className="mt-2 text-xl font-extrabold text-white sm:text-2xl">{money(totalCost)}</p>
+              </div>
+              <div className={`rounded-2xl border p-4 sm:p-5 ${
+                remaining < 0 ? "border-red-400/20 bg-red-500/[0.06]" : "border-emerald-400/20 bg-emerald-500/[0.06]"
+              }`}>
+                <p className="text-xs font-medium text-slate-500">
+                  {remaining < 0 ? "Over budget" : "Remaining balance"}
+                </p>
+                <p className={`mt-2 text-xl font-extrabold sm:text-2xl ${
+                  remaining < 0 ? "text-red-300" : "text-emerald-300"
+                }`}>{money(Math.abs(remaining))}</p>
               </div>
             </div>
+
+            <div className="mt-5 rounded-2xl border border-white/[0.08] bg-[#0a1020] p-5 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h4 className="font-bold text-white">Category allocation</h4>
+                  <p className="mt-1 text-xs text-slate-500">Allocated amount compared with estimated spending</p>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  remaining < 0 ? "bg-red-400/10 text-red-300" : "bg-emerald-400/10 text-emerald-300"
+                }`}>
+                  {remaining < 0 ? "Budget exceeded" : "Within total budget"}
+                </span>
+              </div>
+
+              {budgetCategoryRows.length > 0 ? (
+                <div className="mt-6 space-y-6">
+                  {budgetCategoryRows.map((category) => {
+                    const percent = category.allocated > 0
+                      ? Math.min((category.spent / category.allocated) * 100, 100)
+                      : 0;
+                    const over = category.spent > category.allocated;
+                    return (
+                      <div key={category.name}>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-lg">{category.icon}</span>
+                            <div>
+                              <p className="font-semibold text-white">{category.name}</p>
+                              <p className="mt-1 text-xs text-slate-500">Allocated {money(category.allocated)}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-white">{money(category.spent)}</p>
+                            <p className={`mt-1 text-xs font-semibold ${over ? "text-red-300" : "text-emerald-300"}`}>
+                              {over
+                                ? `${money(category.spent - category.allocated)} over allocation`
+                                : `${money(category.allocated - category.spent)} left`}
+                            </p>
+                          </div>
+                        </div>
+                        <div
+                          className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/[0.07]"
+                          role="progressbar"
+                          aria-label={`${category.name} budget used`}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={Math.round(percent)}
+                        >
+                          <div
+                            className={`h-full rounded-full transition-all ${over ? "bg-red-400" : category.color}`}
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
+                        <p className="mt-1.5 text-right text-[11px] text-slate-500">
+                          {category.allocated > 0 ? `${((category.spent / category.allocated) * 100).toFixed(0)}% of allocation` : "No allocation"}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="mt-5 text-sm leading-7 text-slate-300">
+                  <ReactMarkdown
+                    components={{
+                      strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+                      p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+                      ul: ({ children }) => <ul className="my-3 list-disc space-y-2 pl-5">{children}</ul>,
+                      li: ({ children }) => <li>{children}</li>,
+                    }}
+                  >
+                    {result.budget_analysis || "Category-level budget details were not provided."}
+                  </ReactMarkdown>
+                </div>
+              )}
+            </div>
+
+            {remaining < 0 && (
+              <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/[0.06] p-4 text-sm leading-6 text-red-200">
+                <p className="font-semibold">Your estimated trip cost is above budget.</p>
+                <p className="mt-1 text-red-200/75">
+                  Consider choosing a lower-cost flight or stay, or increasing your trip budget before confirming bookings.
+                </p>
+              </div>
+            )}
           </Panel>
 
           {/* Daily itinerary */}
@@ -1177,7 +1286,7 @@ useEffect(() => {
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
                               <div className="rounded-xl bg-black/20 p-3">
                                 <p className="text-xs text-slate-500">Temperature</p>
                                 <p className="mt-2 text-sm font-bold text-white sm:text-base">
@@ -1194,7 +1303,7 @@ useEffect(() => {
                                     : "Unavailable"}
                                 </p>
                               </div>
-                              <div className="rounded-xl bg-black/20 p-3">
+                              <div className="col-span-2 rounded-xl bg-black/20 p-3 sm:col-span-1">
                                 <p className="text-xs text-slate-500">Wind</p>
                                 <p className="mt-2 text-sm font-bold text-white sm:text-base">
                                   {day.weather.wind ?? "Unavailable"}

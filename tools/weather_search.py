@@ -1,29 +1,26 @@
 
 import json
+import os
 import time
 import threading
-from datetime import date as Date, timedelta
+from collections import Counter
+from datetime import date as Date, datetime, timedelta, timezone
 from functools import lru_cache
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
 
-GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
-FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+GEOCODING_URL = "https://api.openweathermap.org/geo/1.0/direct"
+FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast"
 
 TIMEOUT_SECONDS = 15
 MAX_ATTEMPTS = 3
-MAX_FORECAST_DAYS = 16
+MAX_FORECAST_DAYS = 5  # OpenWeather free 5-day / 3-hour forecast.
 CACHE_TTL_SECONDS = 3600  # Reuse successful forecasts for one hour.
 RATE_LIMIT_COOLDOWN_SECONDS = 300  # Pause Open-Meteo calls after HTTP 429.
 
-WEATHER_FIELDS = (
-    "temperature_2m_max,"
-    "weather_code,"
-    "precipitation_probability_max,"
-    "wind_speed_10m_max"
-)
+OPENWEATHER_API_KEY_ENV = "OPENWEATHER_API_KEY"
 
 _forecast_cache = {}
 _cache_lock = threading.Lock()
@@ -91,28 +88,29 @@ def _get_json(url):
 
 @lru_cache(maxsize=128)
 def _get_coordinates_cached(destination):
-    """Cache geocoding results for repeated destination searches."""
+    """Resolve and cache destination coordinates using OpenWeather Geocoding."""
+
+    api_key = os.getenv(OPENWEATHER_API_KEY_ENV)
+    if not api_key:
+        raise RuntimeError(
+            f"{OPENWEATHER_API_KEY_ENV} is not configured on the server."
+        )
 
     params = {
-        "name": destination,
-        "count": 1,
-        "language": "en",
-        "format": "json",
+        "q": destination,
+        "limit": 1,
+        "appid": api_key,
     }
-
     url = f"{GEOCODING_URL}?{urlencode(params)}"
     data = _get_json(url)
 
-    results = data.get("results", [])
-
-    if not results:
+    if not isinstance(data, list) or not data:
         raise ValueError(f"Could not find destination: {destination}")
 
-    location = results[0]
-
+    location = data[0]
     return (
-        location["latitude"],
-        location["longitude"],
+        location["lat"],
+        location["lon"],
         location.get("name", destination),
         location.get("country", ""),
     )
@@ -187,37 +185,36 @@ def unavailable_weather(destination, date, reason):
 
 
 def _get_cached_forecast(latitude, longitude, start_date, end_date):
-    """Fetch and cache one complete daily forecast date range."""
+    """Fetch and cache OpenWeather's five-day, three-hour forecast."""
+
+    api_key = os.getenv(OPENWEATHER_API_KEY_ENV)
+    if not api_key:
+        raise RuntimeError(
+            f"{OPENWEATHER_API_KEY_ENV} is not configured on the server."
+        )
 
     cache_key = (
         round(float(latitude), 4),
         round(float(longitude), 4),
-        start_date,
-        end_date,
     )
-
     now = time.monotonic()
 
     with _cache_lock:
         cached = _forecast_cache.get(cache_key)
-
         if cached and now - cached["time"] < CACHE_TTL_SECONDS:
             return cached["data"]
 
     params = {
-        "latitude": latitude,
-        "longitude": longitude,
-        "daily": WEATHER_FIELDS,
-        "timezone": "auto",
-        "start_date": start_date,
-        "end_date": end_date,
+        "lat": latitude,
+        "lon": longitude,
+        "appid": api_key,
+        "units": "metric",
     }
-
     url = f"{FORECAST_URL}?{urlencode(params)}"
     data = _get_json(url)
 
-    if not isinstance(data.get("daily"), dict):
-        raise ValueError("Weather service returned no daily forecast data.")
+    if not isinstance(data.get("list"), list):
+        raise ValueError("OpenWeather returned no forecast list.")
 
     with _cache_lock:
         _forecast_cache[cache_key] = {
@@ -225,7 +222,6 @@ def _get_cached_forecast(latitude, longitude, start_date, end_date):
             "data": data,
         }
 
-        # Keep the in-memory cache bounded.
         if len(_forecast_cache) > 128:
             oldest_key = min(
                 _forecast_cache,
@@ -234,6 +230,80 @@ def _get_cached_forecast(latitude, longitude, start_date, end_date):
             _forecast_cache.pop(oldest_key, None)
 
     return data
+
+
+def _aggregate_openweather_daily(data):
+    """Aggregate OpenWeather's 3-hour forecast records into local calendar days."""
+
+    city = data.get("city") or {}
+    timezone_offset = int(city.get("timezone", 0))
+    grouped = {}
+
+    for entry in data.get("list", []):
+        if not isinstance(entry, dict) or "dt" not in entry:
+            continue
+
+        local_datetime = (
+            datetime.fromtimestamp(entry["dt"], tz=timezone.utc)
+            + timedelta(seconds=timezone_offset)
+        )
+        day = local_datetime.date().isoformat()
+        grouped.setdefault(day, []).append(entry)
+
+    daily = {
+        "time": [],
+        "temperature_2m_max": [],
+        "weather_code": [],
+        "precipitation_probability_max": [],
+        "wind_speed_10m_max": [],
+        "condition": [],
+    }
+
+    for day in sorted(grouped):
+        entries = grouped[day]
+        temperatures = []
+        rain_probabilities = []
+        wind_speeds = []
+        conditions = []
+
+        for entry in entries:
+            main = entry.get("main") or {}
+            if main.get("temp_max") is not None:
+                temperatures.append(float(main["temp_max"]))
+            elif main.get("temp") is not None:
+                temperatures.append(float(main["temp"]))
+
+            if entry.get("pop") is not None:
+                rain_probabilities.append(float(entry["pop"]) * 100)
+
+            wind = entry.get("wind") or {}
+            if wind.get("speed") is not None:
+                # OpenWeather reports wind speed in m/s; TripMind displays km/h.
+                wind_speeds.append(float(wind["speed"]) * 3.6)
+
+            weather_items = entry.get("weather") or []
+            if weather_items:
+                item = weather_items[0]
+                condition = item.get("description") or item.get("main")
+                if condition:
+                    conditions.append(str(condition).title())
+
+        daily["time"].append(day)
+        daily["temperature_2m_max"].append(
+            max(temperatures) if temperatures else None
+        )
+        daily["weather_code"].append(0)  # Compatibility field; condition is used below.
+        daily["precipitation_probability_max"].append(
+            max(rain_probabilities) if rain_probabilities else None
+        )
+        daily["wind_speed_10m_max"].append(
+            max(wind_speeds) if wind_speeds else None
+        )
+        daily["condition"].append(
+            Counter(conditions).most_common(1)[0][0] if conditions else None
+        )
+
+    return daily
 
 
 def _build_daily_weather(destination, requested_date, daily):
@@ -306,14 +376,18 @@ def _build_daily_weather(destination, requested_date, daily):
             "The weather service returned implausible measurements.",
         )
 
+    condition = daily.get("condition", [None])[index]
+    if not condition:
+        condition = weather_code_to_condition(weather_code)
+
     return {
         "destination": destination,
         "date": requested_date,
         "temperature": temperature,
-        "condition": weather_code_to_condition(weather_code),
+        "condition": condition,
         "rain_probability": rain_probability,
-        "wind": f"{wind_speed} km/h",
-        "source": "Open-Meteo forecast API",
+        "wind": f"{wind_speed:.1f} km/h",
+        "source": "OpenWeather 5-day forecast API",
         "status": "forecast",
     }
 
@@ -341,7 +415,7 @@ def search_weather_range(destination, start_date, end_date):
         raise ValueError("End date must be after or equal to start date.")
 
     today = Date.today()
-    last_forecast_date = today + timedelta(days=MAX_FORECAST_DAYS)
+    last_forecast_date = today + timedelta(days=MAX_FORECAST_DAYS - 1)
 
     daily_weather = []
     current = start
@@ -366,7 +440,7 @@ def search_weather_range(destination, start_date, end_date):
                     destination,
                     date_string,
                     f"Forecasts are available for up to "
-                    f"{MAX_FORECAST_DAYS} days ahead.",
+                    f"{MAX_FORECAST_DAYS}-day forecast window.",
                 )
             )
 
@@ -398,7 +472,7 @@ def search_weather_range(destination, start_date, end_date):
             forecast_end,
         )
 
-        daily_data = data["daily"]
+        daily_data = _aggregate_openweather_daily(data)
 
         for index, item in enumerate(daily_weather):
             if item is None:
