@@ -9,6 +9,9 @@ from functools import lru_cache
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 GEOCODING_URL = "https://api.openweathermap.org/geo/1.0/direct"

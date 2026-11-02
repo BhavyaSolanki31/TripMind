@@ -1443,8 +1443,8 @@ useEffect(() => {
                                 <p className="text-xs text-slate-500">Rain chance</p>
                                 <p className="mt-2 text-sm font-bold text-white sm:text-base">
                                   {day.weather.rain_probability != null
-                                    ? `${day.weather.rain_probability}%`
-                                    : "Unavailable"}
+                                   ? `${Math.round(day.weather.rain_probability)}%`
+                                   : "Unavailable"}
                                 </p>
                               </div>
                               <div className="col-span-2 rounded-xl bg-black/20 p-3 sm:col-span-1">
