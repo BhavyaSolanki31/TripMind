@@ -1220,6 +1220,148 @@ useEffect(() => {
                 </div>
               )}
             </div>
+            
+            {/* Budget intelligence */}
+            {result.reallocation_analysis && (
+              <div className="mt-5 space-y-4">
+
+                {/* Budget health */}
+                <div className="rounded-2xl border border-blue-400/20 bg-blue-500/[0.05] p-5 sm:p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-blue-300">
+                        TripMind intelligence
+                      </p>
+                      <h4 className="mt-1 text-lg font-bold text-white">
+                        Budget health
+                      </h4>
+                    </div>
+
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      remaining < 0
+                        ? "bg-red-400/10 text-red-300"
+                        : result.reallocation_analysis.uncovered_overspending > 0
+                        ? "bg-amber-400/10 text-amber-300"
+                        : "bg-emerald-400/10 text-emerald-300"
+                    }`}>
+                      {remaining < 0
+                        ? "Overall budget exceeded"
+                        : result.reallocation_analysis.uncovered_overspending > 0
+                        ? "Partial reallocation"
+                        : "Budget healthy"}
+                    </span>
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl bg-black/20 p-4">
+                      <p className="text-xs text-slate-500">Category overspending</p>
+                      <p className="mt-2 text-xl font-bold text-red-300">
+                        {money(result.reallocation_analysis.total_category_overspending)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-black/20 p-4">
+                      <p className="text-xs text-slate-500">Amount reallocated</p>
+                      <p className="mt-2 text-xl font-bold text-blue-300">
+                        {money(result.reallocation_analysis.total_reallocated)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-black/20 p-4">
+                      <p className="text-xs text-slate-500">Uncovered overspending</p>
+                      <p className={`mt-2 text-xl font-bold ${
+                        result.reallocation_analysis.uncovered_overspending > 0
+                          ? "text-amber-300"
+                          : "text-emerald-300"
+                      }`}>
+                        {money(result.reallocation_analysis.uncovered_overspending)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reallocation plan */}
+                <div className="rounded-2xl border border-white/[0.08] bg-[#0a1020] p-5 sm:p-6">
+                  <h4 className="font-bold text-white">
+                    ↔ Suggested budget reallocation
+                  </h4>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Move unused category allocations to categories that exceed their planned limits.
+                  </p>
+
+                  {result.reallocation_analysis.transfers?.length > 0 ? (
+                    <div className="mt-5 space-y-3">
+                      {result.reallocation_analysis.transfers.map(
+                        (transfer: {
+                          from: string;
+                          to: string;
+                          amount: number;
+                        }, index: number) => (
+                          <div
+                            key={`${transfer.from}-${transfer.to}-${index}`}
+                            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] p-4"
+                          >
+                            <div className="flex min-w-0 items-center gap-3">
+                              <span className="rounded-lg bg-emerald-400/10 px-3 py-2 text-xs font-semibold text-emerald-300">
+                                {transfer.from}
+                              </span>
+                              <span className="text-slate-500">→</span>
+                              <span className="rounded-lg bg-blue-400/10 px-3 py-2 text-xs font-semibold text-blue-300">
+                                {transfer.to}
+                              </span>
+                            </div>
+
+                            <p className="font-bold text-white">
+                              {money(transfer.amount)}
+                            </p>
+                          </div>
+                        )
+                      )}
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.08] pt-4">
+                        <span className="text-sm font-medium text-slate-400">
+                          Total suggested reallocation
+                        </span>
+                        <span className="text-lg font-extrabold text-emerald-300">
+                          {money(result.reallocation_analysis.total_reallocated)}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-sm text-slate-400">
+                      No budget reallocation is currently required.
+                    </p>
+                  )}
+
+                  <p className="mt-4 text-xs leading-5 text-slate-500">
+                    These are suggested allocation adjustments, not actual price reductions or completed transactions.
+                  </p>
+                </div>
+
+                {/* Smart savings suggestions */}
+                {result.savings_suggestions?.length > 0 && (
+                  <div className="rounded-2xl border border-amber-400/20 bg-amber-500/[0.04] p-5 sm:p-6">
+                    <h4 className="font-bold text-white">
+                      ✦ Smart cost-saving suggestions
+                    </h4>
+
+                    <ul className="mt-4 space-y-3">
+                      {result.savings_suggestions.map(
+                        (suggestion: string, index: number) => (
+                          <li
+                            key={index}
+                            className="flex items-start gap-3 text-sm leading-6 text-slate-300"
+                          >
+                            <span className="mt-0.5 text-amber-300">✦</span>
+                            <span>{suggestion}</span>
+                          </li>
+                        )
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
 
             {remaining < 0 && (
               <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/[0.06] p-4 text-sm leading-6 text-red-200">
@@ -1229,6 +1371,8 @@ useEffect(() => {
                 </p>
               </div>
             )}
+
+          
           </Panel>
 
           {/* Daily itinerary */}

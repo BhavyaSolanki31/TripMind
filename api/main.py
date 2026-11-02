@@ -129,6 +129,9 @@ def plan_trip(request: TripRequest):
 
         "budget_breakdown": {},
         "budget_recommendation": "",
+        "category_analysis": {},
+        "reallocation_analysis": {},
+        "savings_suggestions": [],
 
         "optimized_activities": [],
         "optimized_route": [],
@@ -193,8 +196,16 @@ def plan_trip(request: TripRequest):
 
         "budget": result["budget_breakdown"],
 
-        "budget_analysis": (
-            result["budget_recommendation"]
+                "budget_analysis": result["budget_recommendation"],
+
+        "category_analysis": result.get("category_analysis", {}),
+
+        "reallocation_analysis": result.get(
+            "reallocation_analysis", {}
+        ),
+
+        "savings_suggestions": result.get(
+            "savings_suggestions", []
         ),
 
         "budget_allocation": {

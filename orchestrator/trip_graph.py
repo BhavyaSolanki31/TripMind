@@ -48,6 +48,9 @@ class TripState(TypedDict):
     nights: int
     budget_breakdown: dict
     budget_recommendation: str
+    category_analysis: dict
+    reallocation_analysis: dict
+    savings_suggestions: list
 
     weather: list
     weather_recommendation: str
@@ -158,6 +161,9 @@ def budget_node(state):
     return {
         "budget_breakdown": result["budget_breakdown"],
         "budget_recommendation": result["budget_recommendation"],
+        "category_analysis": result["category_analysis"],
+        "reallocation_analysis": result["reallocation_analysis"],
+        "savings_suggestions": result["savings_suggestions"],
     }
 
 
