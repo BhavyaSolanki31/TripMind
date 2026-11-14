@@ -244,18 +244,30 @@ def budget_node(state):
         unverified_activity_count=unverified_activity_count,
     )
 
+    
     activity_unavailable = (
-         state.get("activity_data_status") == "unavailable"
+        state.get("activity_data_status") == "unavailable"
     )
 
     if activity_unavailable:
+        previous_estimate_status = result["budget_estimate_status"]
+
         result["budget_estimate_status"] = "Incomplete estimate"
 
-    result["budget_recommendation"] += (
-        "\n\nActivity discovery was unavailable. "
-        "Activity expenses are excluded from this estimate. "
-        "The final trip cost may be higher."
-    )
+        result["budget_recommendation"] = (
+            result["budget_recommendation"].replace(
+                f"**Budget Estimate Status:** {previous_estimate_status}",
+                "**Budget Estimate Status:** Incomplete estimate",
+                1,
+            )
+        )
+
+        result["budget_recommendation"] += (
+            "\n\nActivity discovery was unavailable. "
+            "Activity expenses are excluded from this estimate. "
+            "The final trip cost may be higher."
+        )
+
 
     return {
         "budget_breakdown": result["budget_breakdown"],

@@ -97,3 +97,49 @@ def test_budget_node_marks_unavailable_activities_as_incomplete():
 
     assert result["budget_estimate_status"] == "Incomplete estimate"
     assert "Activity discovery was unavailable" in result["budget_recommendation"]
+
+
+def test_unavailable_activities_update_budget_analysis_status():
+    state = make_budget_state([])
+    state["activity_data_status"] = "unavailable"
+
+    result = budget_node(state)
+
+    assert result["budget_estimate_status"] == "Incomplete estimate"
+    assert "**Budget Estimate Status:** Incomplete estimate" in (
+        result["budget_recommendation"]
+    )
+    assert "Activity discovery was unavailable" in (
+        result["budget_recommendation"]
+    )
+
+
+def test_available_activities_do_not_add_unavailable_warning():
+    state = make_budget_state([])
+    state["activity_data_status"] = "available"
+
+    result = budget_node(state)
+
+    assert result["budget_estimate_status"] == "Complete estimate"
+    assert "Activity discovery was unavailable" not in (
+        result["budget_recommendation"]
+    )
+
+
+def test_unverified_prices_are_consistent_in_budget_analysis():
+    state = make_budget_state([
+        {
+            "name": "Museum",
+            "price": 500,
+            "price_status": "unverified",
+        }
+    ])
+
+    result = budget_node(state)
+
+    assert result["budget_estimate_status"] == (
+        "Contains unverified prices"
+    )
+    assert "**Budget Estimate Status:** Contains unverified prices" in (
+        result["budget_recommendation"]
+    )
