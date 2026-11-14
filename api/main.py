@@ -1,5 +1,4 @@
 
-
 import os
 import logging
 
@@ -10,14 +9,13 @@ from models.trip import TripRequest
 from orchestrator.trip_graph import trip_graph
 
 
-# Configure application error logging.
 logger = logging.getLogger("uvicorn.error")
 
 
 app = FastAPI(
     title="TripMind API",
     description="Multi-Agent AI Travel Planner",
-    version="1.1.0",
+    version="1.2.0",
 )
 
 
@@ -28,7 +26,7 @@ _allowed_origins = [
     origin.strip().rstrip("/")
     for origin in os.getenv(
         "ALLOWED_ORIGINS",
-        _default_origins
+        _default_origins,
     ).split(",")
     if origin.strip()
 ]
@@ -58,30 +56,32 @@ def health():
 @app.post("/plan-trip")
 def plan_trip(request: TripRequest):
     """
-    Create a trip plan using budget allocations derived
-    from the user's budget.
+    Create a trip plan using multiple specialized agents.
 
-    Allocation policy:
+    Budget allocation:
     - 45% flights
     - 35% accommodation
     - 20% activities
 
-    Flight and stay prices are mock estimates,
-    not live quotes.
+    Flight and accommodation prices use mock estimates.
+    Activity prices may be known, unknown, or unverified.
     """
 
     nights = (request.end_date - request.start_date).days
 
     if nights <= 0:
         raise HTTPException(
-           status_code=400,
-           detail="End date must be after start date.",
+            status_code=400,
+            detail="End date must be after start date.",
         )
 
     if nights > 30:
         raise HTTPException(
-           status_code=400,
-           detail="Trips can be up to 30 nights long. Please choose an earlier return date.",
+            status_code=400,
+            detail=(
+                "Trips can be up to 30 nights long. "
+                "Please choose an earlier return date."
+            ),
         )
 
     # Calculate budget allocations.
@@ -124,10 +124,18 @@ def plan_trip(request: TripRequest):
         "selected_activities": [],
         "activity_recommendation": "",
 
+        "activity_data_status": "unknown",
+        "activity_source": "unknown",
+        "unknown_activity_count": 0,
+        "unverified_activity_count": 0,
+
         "total_budget": total_budget,
         "nights": nights,
 
         "budget_breakdown": {},
+        "budget_status": "",
+        "budget_estimate_status": "",
+        "remaining_balance": 0,
         "budget_recommendation": "",
         "category_analysis": {},
         "reallocation_analysis": {},
@@ -151,8 +159,6 @@ def plan_trip(request: TripRequest):
         result = trip_graph.invoke(initial_state)
 
     except Exception as exc:
-        # Log the complete traceback in the backend terminal.
-        # Do not expose internal exception details publicly.
         logger.exception(
             "Trip planning failed: %s",
             exc,
@@ -166,6 +172,23 @@ def plan_trip(request: TripRequest):
             ),
         ) from exc
 
+    # Activity price metadata.
+    unknown_activity_count = result.get(
+        "unknown_activity_count", 0
+    )
+
+    unverified_activity_count = result.get(
+        "unverified_activity_count", 0
+    )
+
+    activity_data_status = result.get(
+        "activity_data_status", "unknown"
+    )
+
+    activity_source = result.get(
+        "activity_source", "unknown"
+    )
+
     # Return the completed trip plan.
     return {
         "selected_flight": result["selected_flight"],
@@ -173,6 +196,14 @@ def plan_trip(request: TripRequest):
         "selected_stay": result["selected_stay"],
 
         "selected_activities": result["selected_activities"],
+
+        "activity_data_status": activity_data_status,
+
+        "activity_source": activity_source,
+
+        "unknown_activity_count": unknown_activity_count,
+
+        "unverified_activity_count": unverified_activity_count,
 
         "optimized_route": result["optimized_route"],
 
@@ -194,11 +225,28 @@ def plan_trip(request: TripRequest):
             [],
         ),
 
+        # Budget information.
         "budget": result["budget_breakdown"],
 
-                "budget_analysis": result["budget_recommendation"],
+        "budget_status": result.get(
+            "budget_status",
+            "Unavailable",
+        ),
 
-        "category_analysis": result.get("category_analysis", {}),
+        "budget_estimate_status": result.get(
+            "budget_estimate_status",
+            "Unavailable",
+        ),
+
+        "remaining_balance": result.get(
+            "remaining_balance",
+        ),
+
+        "budget_analysis": result["budget_recommendation"],
+
+        "category_analysis": result.get(
+            "category_analysis", {}
+        ),
 
         "reallocation_analysis": result.get(
             "reallocation_analysis", {}
@@ -219,9 +267,10 @@ def plan_trip(request: TripRequest):
         },
 
         "data_notice": (
-            "Flight and accommodation listings currently "
-            "use mock data; prices are illustrative estimates, "
-            "not live availability or quotes."
+            "Flight and accommodation listings currently use "
+            "mock data; prices are illustrative estimates, "
+            "not live availability or quotes. Activity prices "
+            "may be unknown or unverified."
         ),
 
         "weather": result["weather"],

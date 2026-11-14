@@ -17,6 +17,16 @@ def _validate_money(name, value):
         raise ValueError(f"{name} cannot be negative.")
 
 
+def _validate_count(name, value):
+    """Validate activity price counts."""
+    if (
+        not isinstance(value, int)
+        or isinstance(value, bool)
+        or value < 0
+    ):
+        raise ValueError(f"{name} must be a non-negative integer.")
+
+
 def budget_agent(
     flight_cost,
     hotel_price_per_night,
@@ -26,17 +36,25 @@ def budget_agent(
     flight_budget=None,
     accommodation_budget=None,
     activity_budget=None,
+    unknown_activity_count=0,
+    unverified_activity_count=0,
 ):
     """
     Budget Agent:
-    1. Calculates trip expenses.
+    1. Calculates known trip expenses.
     2. Checks the overall budget.
-    3. Analyzes category allocations.
-    4. Calculates possible allocation transfers.
-    5. Generates actionable budget recommendations.
+    3. Identifies incomplete or unverified activity prices.
+    4. Analyzes category allocations.
+    5. Calculates possible allocation transfers.
+    6. Generates actionable budget recommendations.
     """
 
     _validate_money("Total budget", total_budget)
+    _validate_count("Unknown activity count", unknown_activity_count)
+    _validate_count(
+        "Unverified activity count",
+        unverified_activity_count,
+    )
 
     # Default allocation policy: 45%, 35%, 20%.
     flight_budget = (
@@ -68,7 +86,7 @@ def budget_agent(
     for category, (allocated, actual) in allocations.items():
         _validate_money(f"{category} allocation", allocated)
 
-    # Calculate actual trip expenses.
+    # Calculate known trip expenses.
     budget = calculate_trip_budget(
         flight_cost=flight_cost,
         hotel_price_per_night=hotel_price_per_night,
@@ -79,8 +97,22 @@ def budget_agent(
     total_cost = budget["total_cost"]
     remaining = total_budget - total_cost
 
+    # Determine whether the estimate is complete.
+    if unknown_activity_count > 0:
+        estimate_status = "Incomplete estimate"
+    elif unverified_activity_count > 0:
+        estimate_status = "Contains unverified prices"
+    else:
+        estimate_status = "Complete estimate"
+
     # Overall budget status.
-    if remaining >= 0:
+    if unknown_activity_count > 0:
+        budget_status = "Incomplete estimate"
+        balance_message = (
+            f"₹{remaining:,.0f} remains based on known costs only. "
+            "Unknown activity prices are excluded."
+        )
+    elif remaining >= 0:
         budget_status = "Within budget"
         balance_message = f"₹{remaining:,.0f} remains."
     else:
@@ -94,7 +126,6 @@ def budget_agent(
     total_category_overspending = 0
 
     for category, (allocated, actual) in allocations.items():
-        difference = actual - allocated
         unused = max(allocated - actual, 0)
         excess = max(actual - allocated, 0)
 
@@ -120,13 +151,11 @@ def budget_agent(
         category_lines.append(
             f"**{category}:** "
             f"Allocated ₹{allocated:,.0f} | "
-            f"Spent ₹{actual:,.0f} | "
+            f"Known spent ₹{actual:,.0f} | "
             f"{status_message}"
         )
 
-    
     # Calculate possible reallocation transfers.
-    # Keep original category analysis values unchanged.
     available_surplus = {
         category: data["surplus"]
         for category, data in category_analysis.items()
@@ -170,7 +199,8 @@ def budget_agent(
         uncovered_overspending += max(deficit, 0)
 
     total_reallocated = sum(
-        transfer["amount"] for transfer in reallocation_transfers
+        transfer["amount"]
+        for transfer in reallocation_transfers
     )
 
     # Actionable savings suggestions.
@@ -193,8 +223,28 @@ def budget_agent(
             "Prioritize free attractions and reduce paid activities."
         )
 
+    if unknown_activity_count > 0:
+        savings_suggestions.append(
+            "Check the prices of activities with unknown costs before "
+            "finalizing the trip budget."
+        )
+
+    if unverified_activity_count > 0:
+        savings_suggestions.append(
+            "Verify unconfirmed activity prices with the relevant "
+            "venues or service providers."
+        )
+
     # Overall recommendation.
-    if remaining < 0:
+    if unknown_activity_count > 0:
+        recommendation = (
+            f"The known trip costs total ₹{total_cost:,.0f}, with "
+            f"₹{remaining:,.0f} remaining against the budget. "
+            f"{unknown_activity_count} activity price(s) are unknown. "
+            "The final budget cannot be confirmed until these prices "
+            "are checked."
+        )
+    elif remaining < 0:
         recommendation = (
             f"The trip exceeds the total budget by ₹{abs(remaining):,.0f}. "
             "Reduce expenses or increase the available budget."
@@ -217,6 +267,12 @@ def budget_agent(
             "allocations."
         )
 
+    if unverified_activity_count > 0:
+        recommendation += (
+            f" Note: {unverified_activity_count} activity price(s) "
+            "are unverified."
+        )
+
     transfer_lines = [
         f"{item['from']} → {item['to']}: ₹{item['amount']:,.0f}"
         for item in reallocation_transfers
@@ -224,10 +280,13 @@ def budget_agent(
 
     budget_analysis = (
         f"**TripMind Budget Analysis:**\n\n"
+        f"**Budget Estimate Status:** {estimate_status}\n\n"
         f"**Overall Budget Status:** {budget_status}\n\n"
         f"**Total Budget:** ₹{total_budget:,.0f}\n\n"
-        f"**Total Estimated Cost:** ₹{total_cost:,.0f}\n\n"
+        f"**Known Estimated Cost:** ₹{total_cost:,.0f}\n\n"
         f"**Remaining Balance:** {balance_message}\n\n"
+        f"**Unknown Activity Prices:** {unknown_activity_count}\n\n"
+        f"**Unverified Activity Prices:** {unverified_activity_count}\n\n"
         f"**Category Breakdown:**\n\n"
         + "\n\n".join(category_lines)
         + "\n\n**Suggested Reallocations:**\n\n"
@@ -248,6 +307,9 @@ def budget_agent(
     return {
         "budget_breakdown": budget,
         "budget_status": budget_status,
+        "budget_estimate_status": estimate_status,
+        "unknown_activity_count": unknown_activity_count,
+        "unverified_activity_count": unverified_activity_count,
         "remaining_balance": remaining,
         "budget_recommendation": budget_analysis,
         "category_analysis": category_analysis,

@@ -1,5 +1,6 @@
 
 import json
+import re
 from datetime import datetime, timedelta
 
 from models.llm import ask_ai_json
@@ -9,7 +10,11 @@ USE_AI = False
 
 
 def normalize_activity(activity, destination):
-    """Convert an activity into TripMind's standard format."""
+    """Convert an activity into TripMind's standard format.
+
+    Missing or unknown prices remain None. Only an explicit numeric zero
+    represents a free activity.
+    """
 
     if isinstance(activity, str):
         return {
@@ -17,7 +22,8 @@ def normalize_activity(activity, destination):
             "title": activity,
             "description": f"Explore {activity} in {destination}.",
             "location": activity,
-            "cost": 0,
+            "cost": None,
+            "price_status": "unknown",
             "duration": "2 hours",
         }
 
@@ -28,6 +34,26 @@ def normalize_activity(activity, destination):
             or activity.get("activity")
             or "Activity"
         )
+
+        price = activity.get("price")
+        if price is None:
+            price = activity.get("cost")
+
+        price_status = str(
+            activity.get("price_status", "")
+        ).strip().lower()
+
+        if price_status in {"unknown", "unavailable"}:
+            price = None
+            price_status = "unknown"
+        elif price is None:
+            price_status = "unknown"
+        elif price_status in {"unverified", "estimated"}:
+            price_status = "unverified"
+        elif price == 0:
+            price_status = "free"
+        elif not price_status:
+            price_status = "unverified"
 
         return {
             "time": activity.get("time", "Morning"),
@@ -40,7 +66,8 @@ def normalize_activity(activity, destination):
                 ),
             ),
             "location": activity.get("location", title),
-            "cost": activity.get("cost", activity.get("price", 0)),
+            "cost": price,
+            "price_status": price_status,
             "duration": activity.get("duration", "2 hours"),
         }
 
@@ -49,7 +76,8 @@ def normalize_activity(activity, destination):
         "title": "Activity",
         "description": "Explore the destination.",
         "location": destination,
-        "cost": 0,
+        "cost": None,
+        "price_status": "unknown",
         "duration": "2 hours",
     }
 
@@ -77,9 +105,6 @@ def _duration_hours(activity):
         return max(float(duration), 0.5)
 
     text = str(duration).strip().casefold()
-
-    import re
-
     numbers = re.findall(r"\d+(?:\.\d+)?", text)
 
     if not numbers:
@@ -109,7 +134,6 @@ def _suggest_time_slot(activity):
     if _is_ferry_activity(activity):
         return "Morning"
 
-    # Sunset and evening-friendly activities.
     if any(
         word in title
         for word in (
@@ -123,7 +147,6 @@ def _suggest_time_slot(activity):
     ):
         return "Evening"
 
-    # Shopping is usually more comfortable during the day.
     if any(
         word in title
         for word in (
@@ -135,7 +158,6 @@ def _suggest_time_slot(activity):
     ):
         return "Afternoon"
 
-    # Longer excursions are best started early.
     if duration >= 3:
         return "Morning"
 
@@ -197,11 +219,9 @@ def _assign_daily_time_slots(activities):
     if not activities:
         return activities
 
-    # Preferred slots in chronological order.
     slots = ["Morning", "Afternoon", "Evening"]
     used_slots = set()
 
-    # First assign special activities their preferred times.
     for activity in activities:
         preferred = _suggest_time_slot(activity)
 
@@ -209,11 +229,8 @@ def _assign_daily_time_slots(activities):
             activity["time"] = preferred
             used_slots.add(preferred)
         else:
-            # A second activity with the same preference is deferred
-            # to the next available slot.
             activity["time"] = None
 
-    # Fill unassigned activities using remaining time slots.
     for activity in activities:
         if activity.get("time") is not None:
             continue
@@ -227,11 +244,8 @@ def _assign_daily_time_slots(activities):
             activity["time"] = available[0]
             used_slots.add(available[0])
         else:
-            # More than three activities may share a day.
-            # Keep the suggested time rather than dropping an activity.
             activity["time"] = _suggest_time_slot(activity)
 
-    # Return the activities in morning-to-evening order.
     slot_order = {
         "Morning": 0,
         "Afternoon": 1,
@@ -257,6 +271,7 @@ def create_fallback_itinerary(
     optimized_activities,
     weather,
     optimized_route=None,
+    activity_data_status="unknown",
 ):
     """Create a complete deterministic itinerary."""
 
@@ -306,15 +321,18 @@ def create_fallback_itinerary(
         optimized_route,
     )
 
-        # Keep arrival and checkout days free of sightseeing assignments.
-    sightseeing_dates = dates[1:-1] if len(dates) > 2 else []
+    # For longer trips, keep arrival and checkout days free.
+    # For shorter trips, use the available dates for sightseeing too.
+    if len(dates) > 2:
+        sightseeing_dates = dates[1:-1]
+    else:
+        sightseeing_dates = dates
 
     activities_by_date = {
         date: [] for date in sightseeing_dates
     }
 
-    # Preserve every unique activity and keep ferry-dependent visits
-    # separate from mainland sightseeing.
+    # Separate ferry-dependent and mainland activities.
     ferry_activities = []
     mainland_activities = []
 
@@ -325,7 +343,6 @@ def create_fallback_itinerary(
             mainland_activities.append(activity)
 
     if sightseeing_dates:
-        # Schedule mainland activities across all sightseeing days first.
         mainland_schedule = _distribute_activities(
             mainland_activities,
             sightseeing_dates,
@@ -336,27 +353,18 @@ def create_fallback_itinerary(
                 mainland_schedule[date]
             )
 
-        # Put ferry-dependent activities on the last sightseeing day.
+        # Put ferry-dependent visits on the last sightseeing day.
         if ferry_activities:
             ferry_date = sightseeing_dates[-1]
-
             activities_by_date[ferry_date].extend(
                 ferry_activities
             )
 
-        # Assign practical time slots independently for each day.
+        # Assign time slots independently for each day.
         for date in activities_by_date:
             activities_by_date[date] = _assign_daily_time_slots(
                 activities_by_date[date]
             )
-    elif normalized_activities:
-        # Short trips may have no separate sightseeing day.
-        # Preserve activities rather than silently dropping them.
-        activities_by_date = {
-            dates[0]: _assign_daily_time_slots(
-                normalized_activities
-            )
-        }
 
     days = []
 
@@ -425,24 +433,48 @@ def create_fallback_itinerary(
                 }
             )
 
-        else:
-            daily_activities.extend(
-                activities_by_date.get(date, [])
-            )
+        # Add sightseeing scheduled for this date.
+        # This also handles arrival and checkout dates on short trips.
+        scheduled_activities = activities_by_date.get(date, [])
+        daily_activities.extend(scheduled_activities)
 
-            if not daily_activities:
-                daily_activities.append(
-                    {
-                        "time": "Flexible",
-                        "title": "Leisure Time",
-                        "description": (
-                            "Enjoy flexible time. Check local opening hours "
-                            "and travel times before choosing activities."
-                        ),
-                        "location": destination,
-                        "cost": 0,
-                    }
+        # Add an explanatory placeholder only on an otherwise empty
+        # middle day. Never replace or hide real scheduled activities.
+        if (
+            index != 0
+            and index != len(dates) - 1
+            and not daily_activities
+        ):
+            if activity_data_status == "unavailable":
+                description = (
+                    "Activity recommendations could not be retrieved "
+                    "because the activity data provider was unavailable. "
+                    "Please check local attractions before travelling."
                 )
+                title = "Activity Information Unavailable"
+
+            elif activity_data_status == "available":
+                description = (
+                    "No activities matched your selected interests "
+                    "and budget. You can explore other local attractions."
+                )
+                title = "No Matching Activities"
+
+            else:
+                description = (
+                    "Activity information has not been confirmed. "
+                    "Please check local attractions before travelling."
+                )
+                title = "Activity Information Pending"
+
+            daily_activities.append({
+                "time": "Flexible",
+                "title": title,
+                "description": description,
+                "location": destination,
+                "cost": None,
+                "price_status": "unknown",
+            })
 
         days.append(
             {
@@ -477,6 +509,7 @@ def itinerary_agent(
     optimized_route,
     budget_breakdown,
     weather,
+    activity_data_status="unknown",
 ):
     """Generate an itinerary with a deterministic fallback."""
 
@@ -526,7 +559,7 @@ Do not invent bookings, prices, opening hours, or weather.
                 "AI response is missing a valid days list."
             )
 
-        # Keep the deterministic version's timing and duplicate protection.
+        # Keep deterministic timing and duplicate protection.
         return {
             "final_itinerary": create_fallback_itinerary(
                 origin=origin,
@@ -538,6 +571,7 @@ Do not invent bookings, prices, opening hours, or weather.
                 optimized_activities=optimized_activities,
                 weather=weather,
                 optimized_route=optimized_route,
+                activity_data_status=activity_data_status,
             )
         }
 
@@ -555,5 +589,6 @@ Do not invent bookings, prices, opening hours, or weather.
                 optimized_activities=optimized_activities,
                 weather=weather,
                 optimized_route=optimized_route,
+                activity_data_status=activity_data_status,
             )
         }

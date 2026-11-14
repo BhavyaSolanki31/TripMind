@@ -87,3 +87,14 @@ def test_rejects_invalid_category_allocations(allocation):
             total_budget=50000,
             flight_budget=allocation,
         )
+
+
+def test_rejects_unknown_activity_cost_instead_of_treating_it_as_free():
+    with pytest.raises(ValueError):
+        budget_agent(
+            flight_cost=10000,
+            hotel_price_per_night=2000,
+            nights=2,
+            activity_cost=None,
+            total_budget=50000,
+        )
